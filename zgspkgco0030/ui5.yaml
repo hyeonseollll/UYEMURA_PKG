@@ -30,3 +30,5 @@ server:
       configuration:
         component: com.gsitm.pkg.co.zgspkgco0030
         ui5Theme: sap_horizon
+    - name: ui5-tooling-modules-middleware
+      afterMiddleware: compression

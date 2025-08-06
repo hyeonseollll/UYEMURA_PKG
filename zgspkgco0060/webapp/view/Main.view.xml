@@ -1,0 +1,181 @@
+<mvc:View controllerName="com.gsitm.pkg.co.zgspkgco0060.controller.Main" displayBlock="true"
+    xmlns:table="sap.ui.table"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:l="sap.ui.layout"
+    xmlns:f="sap.f"
+    xmlns:fb="sap.ui.comp.filterbar"
+    xmlns:svm="sap.ui.comp.smartvariants">
+    <f:DynamicPage headerExpanded="{/headerExpanded}">
+        <f:header>
+            <f:DynamicPageHeader>
+                <f:content>
+                    <fb:FilterBar id="FB_MainSearch" useToolbar="false" search=".onSearch" showFilterConfiguration="false">
+                        <fb:filterGroupItems>
+                            <fb:FilterGroupItem name="CompanyCode" label="{i18n>CompanyCode}" groupName="MainSearch" mandatory="true" visibleInFilterBar="true">
+                                <fb:control>
+                                    <Input id="IP_CompanyCode" value="{Search>/CompanyCode}" required="true" />
+                                </fb:control>
+                            </fb:FilterGroupItem>
+                            <!-- 전기: 시작 ~ 종료 월 -->
+                            <fb:FilterGroupItem name="PriorPeriod" label="{i18n>PriorPeriod}" groupName="MainSearch" visibleInFilterBar="true">
+                                <fb:control>
+                                    <DateRangeSelection value="{
+                    parts: [
+                        {
+                            path: 'DateRange>/priorStart',
+                            type: 'sap.ui.model.type.Date',
+                            formatOptions: {
+                                source: { pattern: 'yyyy-MM-dd' }
+                            }
+                        },
+                        {
+                            path: 'DateRange>/priorEnd',
+                            type: 'sap.ui.model.type.Date',
+                            formatOptions: {
+                                source: { pattern: 'yyyy-MM-dd' }
+                            }
+                        }
+                    ],
+                    type: 'sap.ui.model.type.DateInterval',
+                    formatOptions: {
+                        pattern: 'yyyy-MM'
+                    }
+                }" displayFormat="yyyy-MM" valueFormat="yyyy-MM-dd" change="onMonthRangeChange" />
+                                </fb:control>
+                            </fb:FilterGroupItem>
+
+                            <!-- 당기: 시작 ~ 종료 월 -->
+                            <fb:FilterGroupItem name="CurrentPeriod" label="{i18n>CurrentPeriod}" groupName="MainSearch" visibleInFilterBar="true">
+                                <fb:control>
+                                    <DateRangeSelection value="{
+                    parts: [
+                        {
+                            path: 'DateRange>/currentStart',
+                            type: 'sap.ui.model.type.Date',
+                            formatOptions: {
+                                source: { pattern: 'yyyy-MM-dd' }
+                            }
+                        },
+                        {
+                            path: 'DateRange>/currentEnd',
+                            type: 'sap.ui.model.type.Date',
+                            formatOptions: {
+                                source: { pattern: 'yyyy-MM-dd' }
+                            }
+                        }
+                    ],
+                    type: 'sap.ui.model.type.DateInterval',
+                    formatOptions: {
+                        pattern: 'yyyy-MM'
+                    }
+                }" displayFormat="yyyy-MM" valueFormat="yyyy-MM-dd" change="onMonthRangeChange" />
+                                </fb:control>
+                            </fb:FilterGroupItem>
+                            <fb:FilterGroupItem groupName="FB_GROUP" name="GLAccount" label="{i18n>GLAccount}" labelTooltip="{i18n>GLAccount}" visibleInFilterBar="true">
+                                <fb:control>
+                                    <MultiInput id="MI_GL" width="60%" liveChange=".onLiveChange" valueHelpRequest=".onVHGL" suggestionRows="{
+                                            path: 'oGLAccount>/'
+                                        }">
+                                        <suggestionRows>
+                                            <ColumnListItem>
+                                                <Label text="{oGLAccount>GLAccount}" />
+                                                <Label text="{oGLAccount>GLAccountName}" />
+                                            </ColumnListItem>
+                                        </suggestionRows>
+                                    </MultiInput>
+                                </fb:control>
+                            </fb:FilterGroupItem>
+                        </fb:filterGroupItems>
+                    </fb:FilterBar>
+                </f:content>
+            </f:DynamicPageHeader>
+        </f:header>
+        <f:content>
+            <table:TreeTable id="T_Main" selectionMode="Single" busyIndicatorDelay="0" enableColumnReordering="false" enableCustomFilter="true" enableBusyIndicator="true" rootLevel="1" visibleRowCountMode="Auto">
+                <table:extension>
+                    <Bar>
+                        <contentRight>
+                            <Button id="B_Excel" busyIndicatorDelay="0" icon="sap-icon://excel-attachment" press="onExport" />
+                        </contentRight>
+                    </Bar>
+                </table:extension>
+                <table:columns>
+                    <!-- 내역 -->
+                    <table:Column hAlign="Center">
+                        <Label design="Bold" text="{i18n>NodeText}" />
+                        <table:template>
+                            <Text textAlign="Begin" text="{NodeText}" />
+                        </table:template>
+                    </table:Column>
+
+                    <!-- G/L 계정 -->
+                    <table:Column hAlign="Left">
+                        <Label design="Bold" text="{i18n>GlAccount}" />
+                        <table:template>
+                            <Text textAlign="Left" text="{GlAccount} {GlAccountText}" />
+                        </table:template>
+                    </table:Column>
+
+                    <!-- 기간 잔액 -->
+                    <table:Column hAlign="End">
+                        <Label design="Bold" text="{i18n>PeriodBalance}" />
+                        <table:template>
+                            <Text textAlign="End" text="{
+                    parts: ['PeriodBalance', 'CompanyCodeCurrency'],
+                    type: 'sap.ui.model.type.Currency',
+                    formatOptions: { showMeasure: false }
+                }" />
+                        </table:template>
+                    </table:Column>
+
+                    <!-- 비교 기간 잔액 -->
+                    <table:Column hAlign="End">
+                        <Label design="Bold" text="{i18n>ComparisonBalance}" />
+                        <table:template>
+                            <Text textAlign="End" text="{
+                   parts: ['ComparisonBalance', 'CompanyCodeCurrency'],
+                    type: 'sap.ui.model.type.Currency',
+                    formatOptions: {showMeasure: false }
+                }" />
+                        </table:template>
+                    </table:Column>
+
+                    <!-- 절대 차이 -->
+                    <table:Column hAlign="End">
+                        <Label design="Bold" text="{i18n>AbsoluteDifference}" />
+                        <table:template>
+                            <Text textAlign="End" text="{
+                           parts: ['AbsoluteDifference', 'CompanyCodeCurrency'],
+                    type: 'sap.ui.model.type.Currency',
+                    formatOptions: {showMeasure: false }
+                }" />
+                        </table:template>
+                    </table:Column>
+
+                    <!-- 상대 차이 -->
+                    <table:Column hAlign="End">
+                        <Label design="Bold" text="{i18n>RelativeDifference}" />
+                        <table:template>
+                            <Text textAlign="End" text="{
+            path: 'RelativeDifference',
+     formatter: '.formatter.multiplyByHundredth'
+            
+        }" />
+                        </table:template>
+                    </table:Column>
+
+
+                    <!-- 단위 -->
+                    <table:Column hAlign="Left" width="10%">
+                        <Label design="Bold" text="{i18n>CompanyCodeCurrency}" />
+                        <table:template>
+                            <Text textAlign="Left" text="{CompanyCodeCurrency}" />
+                        </table:template>
+                    </table:Column>
+                </table:columns>
+            </table:TreeTable>
+        </f:content>
+    </f:DynamicPage>
+</mvc:View>

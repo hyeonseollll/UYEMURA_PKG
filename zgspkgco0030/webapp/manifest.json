@@ -28,10 +28,18 @@
         "type": "OData",
         "settings": {
           "annotations": [
+            "ZSB_COSTINGTYPEMT_UI_O2_VAN",
             "annotation"
           ],
           "localUri": "localService/mainService/metadata.xml",
           "odataVersion": "2.0"
+        }
+      },
+      "ZSB_COSTINGTYPEMT_UI_O2_VAN": {
+        "uri": "/sap/opu/odata/IWFND/CATALOGSERVICE;v=2/Annotations(TechnicalName='ZSB_COSTINGTYPEMT_UI_O2_VAN',Version='0001')/$value/",
+        "type": "ODataAnnotation",
+        "settings": {
+          "localUri": "localService/mainService/ZSB_COSTINGTYPEMT_UI_O2_VAN.xml"
         }
       }
     }
@@ -95,12 +103,39 @@
       }
     },
     "resources": {
-      "css": []
+      "css": [],
+      "js": [
+        {
+          "uri": "./xlsx/xlsx.full.min.js"
+        }
+      ]
     },
     "routing": {
       "config": {},
       "routes": [],
       "targets": {}
+    },
+    "extends": {
+      "extensions": {
+        "sap.ui.controllerExtensions": {
+          "sap.suite.ui.generic.template.ListReport.view.ListReport": {
+            "controllerName": "com.gsitm.pkg.co.zgspkgco0030.ext.controller.ListReportExt",
+            "sap.ui.generic.app": {
+              "CostingTypeMaster": {
+                "EntitySet": "CostingTypeMaster",
+                "Actions": {
+                  "Excel Upload": {
+                    "id": "ExcelUploadButton",
+                    "text": "엑셀 업로드",
+                    "press": "onExcelUpload",
+                    "requiresSelection": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "sap.ui.generic.app": {
@@ -127,7 +162,8 @@
               }
             },
             "tableSettings": {
-              "type": "GridTable"
+              "type": "GridTable",
+              "multiSelect": true
             }
           }
         },

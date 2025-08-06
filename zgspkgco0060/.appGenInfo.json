@@ -1,0 +1,24 @@
+{
+  "generationParameters": {
+    "generationDate": "Tue Jul 29 2025 16:49:33 GMT+0900 (Korean Standard Time)",
+    "generatorPlatform": "Visual Studio Code",
+    "serviceType": "SAP System (ABAP On Premise)",
+    "metadataFilename": "",
+    "serviceUrl": "https://my423435.s4hana.cloud.sap/sap/opu/odata/sap/ZSB_FISTATEMENTS_UI_O2",
+    "appName": "zgspkgco0060",
+    "appTitle": "재무제표",
+    "appDescription": "재무제표",
+    "appNamespace": "com.gsitm.pkg.co",
+    "ui5Theme": "sap_horizon",
+    "ui5Version": "1.130.11",
+    "enableCodeAssist": false,
+    "enableEslint": false,
+    "enableTypeScript": false,
+    "showMockDataInfo": true,
+    "generatorVersion": "1.18.0",
+    "template": "Basic V2",
+    "generatorName": "SAP Fiori Application Generator",
+    "entityRelatedConfig": [],
+    "launchText": "In order to launch the generated app, simply run the following from the generated app root folder:\n\n```\n    npm start\n```"
+  }
+}

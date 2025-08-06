@@ -4,21 +4,28 @@ specVersion: "3.1"
 metadata:
   name: com.gsitm.pkg.co.zgspkgco0020
 type: application
+builder:
+  customTasks:
+    - name: ui5-tooling-modules-task
+      afterTask: replaceVersion
 server:
   customMiddleware:
     - name: fiori-tools-proxy
       afterMiddleware: compression
       configuration:
-        ignoreCertError: false # If set to true, certificate errors will be ignored. E.g. self-signed certificates will be accepted
+        ignoreCertError: false
         ui5:
           path:
             - /resources
             - /test-resources
           url: https://ui5.sap.com
         backend:
-          - authenticationType: reentranceTicket # SAML support for vscode
+          - authenticationType: reentranceTicket
             path: /sap
             url: https://my423435.s4hana.cloud.sap
+          - url: https://my423435.s4hana.cloud.sap/
+            authenticationType: reentranceTicket # SAML support for vscode
+            path: /sap/opu/odata/sap/ZSB_ILMASTER_UI_O2/
     - name: fiori-tools-appreload
       afterMiddleware: compression
       configuration:
@@ -30,3 +37,5 @@ server:
       configuration:
         component: com.gsitm.pkg.co.zgspkgco0020
         ui5Theme: sap_horizon
+    - name: ui5-tooling-modules-middleware
+      afterMiddleware: compression
