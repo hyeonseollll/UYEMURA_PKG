@@ -8,6 +8,7 @@
 			"version": "0.0.1"
 		},
 		"title": "{{appTitle}}",
+		"subTitle": "co 패키지",
 		"description": "{{appDescription}}",
 		"resources": "resources.json",
 		"sourceTemplate": {

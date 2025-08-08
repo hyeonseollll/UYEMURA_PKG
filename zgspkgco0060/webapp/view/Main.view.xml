@@ -119,17 +119,33 @@
                     </table:Column>
 
                     <!-- 기간 잔액 -->
+                    <!-- <table:Column hAlign="End">
+                        <Label design="Bold" text="{i18n>PeriodBalance}" />
+                        <table:template>
+                            <Link text="{
+                parts: ['PeriodBalance', 'CompanyCodeCurrency'],
+                type: 'sap.ui.model.type.Currency',
+                formatOptions: { showMeasure: false }
+            }" press=".onPeriodBalancePress" />
+                        </table:template>
+                    </table:Column> -->
                     <table:Column hAlign="End">
                         <Label design="Bold" text="{i18n>PeriodBalance}" />
                         <table:template>
-                            <Text textAlign="End" text="{
+                            <HBox justifyContent="End" width="100%">
+                                <Link text="{
                     parts: ['PeriodBalance', 'CompanyCodeCurrency'],
                     type: 'sap.ui.model.type.Currency',
                     formatOptions: { showMeasure: false }
-                }" />
+                }" press=".onPeriodBalancePress" visible="{= !!${GlAccount}}" />
+                                <Text text="{
+                    parts: ['PeriodBalance', 'CompanyCodeCurrency'],
+                    type: 'sap.ui.model.type.Currency',
+                    formatOptions: { showMeasure: false }
+                }" visible="{= !${GlAccount}}" />
+                            </HBox>
                         </table:template>
                     </table:Column>
-
                     <!-- 비교 기간 잔액 -->
                     <table:Column hAlign="End">
                         <Label design="Bold" text="{i18n>ComparisonBalance}" />

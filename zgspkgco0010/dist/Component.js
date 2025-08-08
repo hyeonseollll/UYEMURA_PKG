@@ -1,0 +1,2 @@
+sap.ui.define(["sap/suite/ui/generic/template/lib/AppComponent"],function(e){"use strict";return e.extend("com.gsitm.pkg.co.zgspkgco0010.Component",{metadata:{manifest:"json"}})});
+//# sourceMappingURL=Component.js.map

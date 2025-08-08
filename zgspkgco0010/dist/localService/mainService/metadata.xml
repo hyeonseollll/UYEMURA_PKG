@@ -41,49 +41,29 @@
         <edmx:Include Namespace="Org.OData.Validation.V1" Alias="Validation"/>
     </edmx:Reference>
     <edmx:DataServices m:DataServiceVersion="2.0">
-        <Schema Namespace="cds_zsd_financialstatements" xml:lang="ko" sap:schema-version="1" xmlns="http://schemas.microsoft.com/ado/2008/09/edm">
-            <EntityType Name="FinancialStatementsType" sap:label="재무제표 Custom Entity" sap:content-version="1">
+        <Schema Namespace="cds_zsd_inventoryledgermasterdata" xml:lang="ko" sap:schema-version="1" xmlns="http://schemas.microsoft.com/ado/2008/09/edm">
+            <EntityType Name="GLMTMasterType" sap:label="GL-평가클래스 기준정보 Projection View" sap:content-version="1">
                 <Key>
-                    <PropertyRef Name="HierarchyID"/>
-                    <PropertyRef Name="Node"/>
-                    <PropertyRef Name="GlAccount"/>
-                    <PropertyRef Name="ParentNodeID"/>
+                    <PropertyRef Name="Id"/>
                 </Key>
-                <Property Name="HierarchyID" Type="Edm.String" Nullable="false" MaxLength="50"/>
-                <Property Name="Node" Type="Edm.String" Nullable="false" MaxLength="50"/>
-                <Property Name="GlAccount" Type="Edm.String" Nullable="false" MaxLength="10" sap:display-format="UpperCase" sap:label="G/L 계정" sap:quickinfo="G/L 계정 번호"/>
-                <Property Name="ParentNodeID" Type="Edm.String" Nullable="false" MaxLength="50"/>
-                <Property Name="GlAccountText" Type="Edm.String" MaxLength="255"/>
-                <Property Name="NodeText" Type="Edm.String" MaxLength="255"/>
-                <Property Name="PeriodBalance" Type="Edm.Decimal" Precision="23" Scale="3" sap:unit="CompanyCodeCurrency" sap:variable-scale="true"/>
-                <Property Name="ComparisonBalance" Type="Edm.Decimal" Precision="23" Scale="3" sap:unit="CompanyCodeCurrency" sap:variable-scale="true"/>
-                <Property Name="AbsoluteDifference" Type="Edm.Decimal" Precision="23" Scale="3" sap:unit="CompanyCodeCurrency" sap:variable-scale="true"/>
-                <Property Name="RelativeDifference" Type="Edm.Decimal" Precision="23" Scale="3" sap:unit="CompanyCodeCurrency" sap:variable-scale="true"/>
-                <Property Name="CompanyCodeCurrency" Type="Edm.String" MaxLength="5" sap:semantics="currency-code"/>
-                <Property Name="HierarchyLevel" Type="Edm.String" MaxLength="6" sap:display-format="NonNegative"/>
-                <Property Name="DrillState" Type="Edm.String" MaxLength="10"/>
-                <Property Name="SortIndex" Type="Edm.Int64"/>
-                <Property Name="top" Type="Edm.Int32" sap:label="INT4" sap:quickinfo="4바이트 부호 있는 정수"/>
-                <Property Name="P_SYEAR" Type="Edm.String" MaxLength="4" sap:display-format="NonNegative" sap:label="회계연도"/>
-                <Property Name="P_SMONTH" Type="Edm.String" MaxLength="3" sap:display-format="NonNegative" sap:label="전기 기간"/>
-                <Property Name="P_SENDMONTH" Type="Edm.String" MaxLength="3" sap:display-format="NonNegative" sap:label="전기 기간"/>
-                <Property Name="P_CYEAR" Type="Edm.String" MaxLength="4" sap:display-format="NonNegative" sap:label="회계연도"/>
-                <Property Name="P_CMONTH" Type="Edm.String" MaxLength="3" sap:display-format="NonNegative" sap:label="전기 기간"/>
-                <Property Name="P_CENDMONTH" Type="Edm.String" MaxLength="3" sap:display-format="NonNegative" sap:label="전기 기간"/>
-                <Property Name="P_COMPCD" Type="Edm.String" MaxLength="4" sap:display-format="UpperCase" sap:label="회사 코드"/>
-                <Property Name="P_GLACCOUNT" Type="Edm.String" MaxLength="10" sap:display-format="UpperCase" sap:label="G/L 계정" sap:quickinfo="G/L 계정 번호"/>
+                <Property Name="Delete_mc" Type="Edm.Boolean" sap:label="Dyn. Method Control" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                <Property Name="Update_mc" Type="Edm.Boolean" sap:label="Dyn. Method Control" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                <Property Name="Id" Type="Edm.Guid" Nullable="false" sap:label="UUID" sap:quickinfo="16 Byte UUID in 16 Bytes (Raw Format)" sap:creatable="false" sap:updatable="false"/>
+                <Property Name="MaterialvaluationClass" Type="Edm.String" MaxLength="4" sap:label="평가클래스"/>
+                <Property Name="ClassName" Type="Edm.String" MaxLength="50" sap:label="평가클래스명"/>
+                <Property Name="GLAccount" Type="Edm.String" MaxLength="10" sap:label="G/L계정"/>
+                <Property Name="GLAccountName" Type="Edm.String" MaxLength="50" sap:label="G/L계정명"/>
             </EntityType>
-            <EntityType Name="GLAccount_VHType" sap:label="G/L계정 ValueHelp" sap:content-version="1">
+            <EntityType Name="MaterialCateSegType" sap:label="자재원장 순번 기준정보 Projection View" sap:content-version="1">
                 <Key>
-                    <PropertyRef Name="ChartOfAccounts"/>
-                    <PropertyRef Name="GLAccount"/>
-                    <PropertyRef Name="Language"/>
+                    <PropertyRef Name="Id"/>
                 </Key>
-                <Property Name="ChartOfAccounts" Type="Edm.String" Nullable="false" MaxLength="4" sap:display-format="UpperCase" sap:label="계정과목표"/>
-                <Property Name="GLAccount" Type="Edm.String" Nullable="false" MaxLength="10" sap:display-format="UpperCase" sap:label="G/L 계정" sap:quickinfo="G/L 계정 번호"/>
-                <Property Name="Language" Type="Edm.String" Nullable="false" MaxLength="2" sap:label="언어 키"/>
-                <Property Name="GLAccountName" Type="Edm.String" MaxLength="20" sap:label="G/L 계정 이름"/>
-                <Property Name="GLAccountLongName" Type="Edm.String" MaxLength="50" sap:label="GL 계정의 긴 이름" sap:quickinfo="G/L 계정의 긴 이름"/>
+                <Property Name="Delete_mc" Type="Edm.Boolean" sap:label="Dyn. Method Control" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                <Property Name="Update_mc" Type="Edm.Boolean" sap:label="Dyn. Method Control" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                <Property Name="Id" Type="Edm.Guid" Nullable="false" sap:label="UUID" sap:quickinfo="16 Byte UUID in 16 Bytes (Raw Format)" sap:creatable="false" sap:updatable="false"/>
+                <Property Name="Sequence" Type="Edm.Byte"/>
+                <Property Name="Materialledgercategory" Type="Edm.String" MaxLength="2"/>
+                <Property Name="Materialledgercategorytext" Type="Edm.String" MaxLength="15"/>
             </EntityType>
             <EntityType Name="SAP__Currency" sap:content-version="1">
                 <Key>
@@ -113,15 +93,15 @@
                 <Property Name="CreatedAt" Type="Edm.DateTime" Nullable="false" Precision="0" sap:label="Time Stamp"/>
                 <Property Name="FileName" Type="Edm.String" Nullable="false" MaxLength="256"/>
                 <Property Name="Title" Type="Edm.String" Nullable="false" MaxLength="256"/>
-                <NavigationProperty Name="Format" Relationship="cds_zsd_financialstatements.to_format" FromRole="FromRole_to_format" ToRole="ToRole_to_format"/>
-                <NavigationProperty Name="FileShare" Relationship="cds_zsd_financialstatements.to_fileshare" FromRole="FromRole_to_fileshare" ToRole="ToRole_to_fileshare"/>
-                <NavigationProperty Name="TableColumns" Relationship="cds_zsd_financialstatements.to_tablecolumns" FromRole="FromRole_to_tablecolumns" ToRole="ToRole_to_tablecolumns"/>
-                <NavigationProperty Name="CoverPage" Relationship="cds_zsd_financialstatements.to_coverpage" FromRole="FromRole_to_coverpage" ToRole="ToRole_to_coverpage"/>
-                <NavigationProperty Name="Signature" Relationship="cds_zsd_financialstatements.to_signature" FromRole="FromRole_to_signature" ToRole="ToRole_to_signature"/>
-                <NavigationProperty Name="PDFStandard" Relationship="cds_zsd_financialstatements.to_pdfstandard" FromRole="FromRole_to_pdfstandard" ToRole="ToRole_to_pdfstandard"/>
-                <NavigationProperty Name="Hierarchy" Relationship="cds_zsd_financialstatements.to_Hierarchy" FromRole="FromRole_to_Hierarchy" ToRole="ToRole_to_Hierarchy"/>
-                <NavigationProperty Name="Header" Relationship="cds_zsd_financialstatements.to_header" FromRole="FromRole_to_header" ToRole="ToRole_to_header"/>
-                <NavigationProperty Name="Footer" Relationship="cds_zsd_financialstatements.to_Footer" FromRole="FromRole_to_Footer" ToRole="ToRole_to_Footer"/>
+                <NavigationProperty Name="Format" Relationship="cds_zsd_inventoryledgermasterdata.to_format" FromRole="FromRole_to_format" ToRole="ToRole_to_format"/>
+                <NavigationProperty Name="FileShare" Relationship="cds_zsd_inventoryledgermasterdata.to_fileshare" FromRole="FromRole_to_fileshare" ToRole="ToRole_to_fileshare"/>
+                <NavigationProperty Name="TableColumns" Relationship="cds_zsd_inventoryledgermasterdata.to_tablecolumns" FromRole="FromRole_to_tablecolumns" ToRole="ToRole_to_tablecolumns"/>
+                <NavigationProperty Name="CoverPage" Relationship="cds_zsd_inventoryledgermasterdata.to_coverpage" FromRole="FromRole_to_coverpage" ToRole="ToRole_to_coverpage"/>
+                <NavigationProperty Name="Signature" Relationship="cds_zsd_inventoryledgermasterdata.to_signature" FromRole="FromRole_to_signature" ToRole="ToRole_to_signature"/>
+                <NavigationProperty Name="PDFStandard" Relationship="cds_zsd_inventoryledgermasterdata.to_pdfstandard" FromRole="FromRole_to_pdfstandard" ToRole="ToRole_to_pdfstandard"/>
+                <NavigationProperty Name="Hierarchy" Relationship="cds_zsd_inventoryledgermasterdata.to_Hierarchy" FromRole="FromRole_to_Hierarchy" ToRole="ToRole_to_Hierarchy"/>
+                <NavigationProperty Name="Header" Relationship="cds_zsd_inventoryledgermasterdata.to_header" FromRole="FromRole_to_header" ToRole="ToRole_to_header"/>
+                <NavigationProperty Name="Footer" Relationship="cds_zsd_inventoryledgermasterdata.to_Footer" FromRole="FromRole_to_Footer" ToRole="ToRole_to_Footer"/>
             </EntityType>
             <EntityType Name="SAP__FileShare" sap:content-version="1">
                 <Key>
@@ -135,7 +115,7 @@
                 <Key>
                     <PropertyRef Name="Id"/>
                 </Key>
-                <Property Name="FitToPage" Type="cds_zsd_financialstatements.SAP__FitToPage" Nullable="false"/>
+                <Property Name="FitToPage" Type="cds_zsd_inventoryledgermasterdata.SAP__FitToPage" Nullable="false"/>
                 <Property Name="Id" Type="Edm.Guid" Nullable="false" sap:label="UUID" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                 <Property Name="FontSize" Type="Edm.Int32" Nullable="false" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                 <Property Name="Orientation" Type="Edm.String" Nullable="false" MaxLength="10" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
@@ -160,7 +140,7 @@
                     <PropertyRef Name="Name"/>
                     <PropertyRef Name="Header"/>
                 </Key>
-                <Property Name="Format" Type="cds_zsd_financialstatements.SAP__TableColumnFormat" Nullable="false"/>
+                <Property Name="Format" Type="cds_zsd_inventoryledgermasterdata.SAP__TableColumnFormat" Nullable="false"/>
                 <Property Name="Id" Type="Edm.Guid" Nullable="false" sap:label="UUID" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                 <Property Name="Name" Type="Edm.String" Nullable="false" MaxLength="256" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                 <Property Name="Header" Type="Edm.String" Nullable="false" MaxLength="256" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
@@ -197,18 +177,18 @@
                 <Key>
                     <PropertyRef Name="Id"/>
                 </Key>
-                <Property Name="Right" Type="cds_zsd_financialstatements.SAP__HeaderFooterField" Nullable="false"/>
-                <Property Name="Left" Type="cds_zsd_financialstatements.SAP__HeaderFooterField" Nullable="false"/>
-                <Property Name="Center" Type="cds_zsd_financialstatements.SAP__HeaderFooterField" Nullable="false"/>
+                <Property Name="Right" Type="cds_zsd_inventoryledgermasterdata.SAP__HeaderFooterField" Nullable="false"/>
+                <Property Name="Left" Type="cds_zsd_inventoryledgermasterdata.SAP__HeaderFooterField" Nullable="false"/>
+                <Property Name="Center" Type="cds_zsd_inventoryledgermasterdata.SAP__HeaderFooterField" Nullable="false"/>
                 <Property Name="Id" Type="Edm.Guid" Nullable="false" sap:label="UUID" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
             </EntityType>
             <EntityType Name="SAP__PDFFooter" sap:content-version="1">
                 <Key>
                     <PropertyRef Name="Id"/>
                 </Key>
-                <Property Name="Right" Type="cds_zsd_financialstatements.SAP__HeaderFooterField" Nullable="false"/>
-                <Property Name="Left" Type="cds_zsd_financialstatements.SAP__HeaderFooterField" Nullable="false"/>
-                <Property Name="Center" Type="cds_zsd_financialstatements.SAP__HeaderFooterField" Nullable="false"/>
+                <Property Name="Right" Type="cds_zsd_inventoryledgermasterdata.SAP__HeaderFooterField" Nullable="false"/>
+                <Property Name="Left" Type="cds_zsd_inventoryledgermasterdata.SAP__HeaderFooterField" Nullable="false"/>
+                <Property Name="Center" Type="cds_zsd_inventoryledgermasterdata.SAP__HeaderFooterField" Nullable="false"/>
                 <Property Name="Id" Type="Edm.Guid" Nullable="false" sap:label="UUID" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
             </EntityType>
             <EntityType Name="SAP__ValueHelp" sap:content-version="1">
@@ -233,8 +213,8 @@
                 <Property Name="Type" Type="Edm.String" Nullable="false" MaxLength="256" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
             </ComplexType>
             <Association Name="to_format" sap:content-version="1">
-                <End Type="cds_zsd_financialstatements.SAP__DocumentDescription" Multiplicity="1" Role="FromRole_to_format"/>
-                <End Type="cds_zsd_financialstatements.SAP__Format" Multiplicity="1" Role="ToRole_to_format"/>
+                <End Type="cds_zsd_inventoryledgermasterdata.SAP__DocumentDescription" Multiplicity="1" Role="FromRole_to_format"/>
+                <End Type="cds_zsd_inventoryledgermasterdata.SAP__Format" Multiplicity="1" Role="ToRole_to_format"/>
                 <ReferentialConstraint>
                     <Principal Role="FromRole_to_format">
                         <PropertyRef Name="Id"/>
@@ -245,8 +225,8 @@
                 </ReferentialConstraint>
             </Association>
             <Association Name="to_fileshare" sap:content-version="1">
-                <End Type="cds_zsd_financialstatements.SAP__DocumentDescription" Multiplicity="1" Role="FromRole_to_fileshare"/>
-                <End Type="cds_zsd_financialstatements.SAP__FileShare" Multiplicity="1" Role="ToRole_to_fileshare"/>
+                <End Type="cds_zsd_inventoryledgermasterdata.SAP__DocumentDescription" Multiplicity="1" Role="FromRole_to_fileshare"/>
+                <End Type="cds_zsd_inventoryledgermasterdata.SAP__FileShare" Multiplicity="1" Role="ToRole_to_fileshare"/>
                 <ReferentialConstraint>
                     <Principal Role="FromRole_to_fileshare">
                         <PropertyRef Name="Id"/>
@@ -257,8 +237,8 @@
                 </ReferentialConstraint>
             </Association>
             <Association Name="to_tablecolumns" sap:content-version="1">
-                <End Type="cds_zsd_financialstatements.SAP__DocumentDescription" Multiplicity="1" Role="FromRole_to_tablecolumns"/>
-                <End Type="cds_zsd_financialstatements.SAP__TableColumns" Multiplicity="*" Role="ToRole_to_tablecolumns"/>
+                <End Type="cds_zsd_inventoryledgermasterdata.SAP__DocumentDescription" Multiplicity="1" Role="FromRole_to_tablecolumns"/>
+                <End Type="cds_zsd_inventoryledgermasterdata.SAP__TableColumns" Multiplicity="*" Role="ToRole_to_tablecolumns"/>
                 <ReferentialConstraint>
                     <Principal Role="FromRole_to_tablecolumns">
                         <PropertyRef Name="Id"/>
@@ -269,8 +249,8 @@
                 </ReferentialConstraint>
             </Association>
             <Association Name="to_coverpage" sap:content-version="1">
-                <End Type="cds_zsd_financialstatements.SAP__DocumentDescription" Multiplicity="1" Role="FromRole_to_coverpage"/>
-                <End Type="cds_zsd_financialstatements.SAP__CoverPage" Multiplicity="*" Role="ToRole_to_coverpage"/>
+                <End Type="cds_zsd_inventoryledgermasterdata.SAP__DocumentDescription" Multiplicity="1" Role="FromRole_to_coverpage"/>
+                <End Type="cds_zsd_inventoryledgermasterdata.SAP__CoverPage" Multiplicity="*" Role="ToRole_to_coverpage"/>
                 <ReferentialConstraint>
                     <Principal Role="FromRole_to_coverpage">
                         <PropertyRef Name="Id"/>
@@ -281,8 +261,8 @@
                 </ReferentialConstraint>
             </Association>
             <Association Name="to_signature" sap:content-version="1">
-                <End Type="cds_zsd_financialstatements.SAP__DocumentDescription" Multiplicity="1" Role="FromRole_to_signature"/>
-                <End Type="cds_zsd_financialstatements.SAP__Signature" Multiplicity="1" Role="ToRole_to_signature"/>
+                <End Type="cds_zsd_inventoryledgermasterdata.SAP__DocumentDescription" Multiplicity="1" Role="FromRole_to_signature"/>
+                <End Type="cds_zsd_inventoryledgermasterdata.SAP__Signature" Multiplicity="1" Role="ToRole_to_signature"/>
                 <ReferentialConstraint>
                     <Principal Role="FromRole_to_signature">
                         <PropertyRef Name="Id"/>
@@ -293,8 +273,8 @@
                 </ReferentialConstraint>
             </Association>
             <Association Name="to_pdfstandard" sap:content-version="1">
-                <End Type="cds_zsd_financialstatements.SAP__DocumentDescription" Multiplicity="1" Role="FromRole_to_pdfstandard"/>
-                <End Type="cds_zsd_financialstatements.SAP__PDFStandard" Multiplicity="1" Role="ToRole_to_pdfstandard"/>
+                <End Type="cds_zsd_inventoryledgermasterdata.SAP__DocumentDescription" Multiplicity="1" Role="FromRole_to_pdfstandard"/>
+                <End Type="cds_zsd_inventoryledgermasterdata.SAP__PDFStandard" Multiplicity="1" Role="ToRole_to_pdfstandard"/>
                 <ReferentialConstraint>
                     <Principal Role="FromRole_to_pdfstandard">
                         <PropertyRef Name="Id"/>
@@ -305,8 +285,8 @@
                 </ReferentialConstraint>
             </Association>
             <Association Name="to_Hierarchy" sap:content-version="1">
-                <End Type="cds_zsd_financialstatements.SAP__DocumentDescription" Multiplicity="1" Role="FromRole_to_Hierarchy"/>
-                <End Type="cds_zsd_financialstatements.SAP__Hierarchy" Multiplicity="1" Role="ToRole_to_Hierarchy"/>
+                <End Type="cds_zsd_inventoryledgermasterdata.SAP__DocumentDescription" Multiplicity="1" Role="FromRole_to_Hierarchy"/>
+                <End Type="cds_zsd_inventoryledgermasterdata.SAP__Hierarchy" Multiplicity="1" Role="ToRole_to_Hierarchy"/>
                 <ReferentialConstraint>
                     <Principal Role="FromRole_to_Hierarchy">
                         <PropertyRef Name="Id"/>
@@ -317,8 +297,8 @@
                 </ReferentialConstraint>
             </Association>
             <Association Name="to_header" sap:content-version="1">
-                <End Type="cds_zsd_financialstatements.SAP__DocumentDescription" Multiplicity="1" Role="FromRole_to_header"/>
-                <End Type="cds_zsd_financialstatements.SAP__PDFHeader" Multiplicity="1" Role="ToRole_to_header"/>
+                <End Type="cds_zsd_inventoryledgermasterdata.SAP__DocumentDescription" Multiplicity="1" Role="FromRole_to_header"/>
+                <End Type="cds_zsd_inventoryledgermasterdata.SAP__PDFHeader" Multiplicity="1" Role="ToRole_to_header"/>
                 <ReferentialConstraint>
                     <Principal Role="FromRole_to_header">
                         <PropertyRef Name="Id"/>
@@ -329,8 +309,8 @@
                 </ReferentialConstraint>
             </Association>
             <Association Name="to_Footer" sap:content-version="1">
-                <End Type="cds_zsd_financialstatements.SAP__DocumentDescription" Multiplicity="1" Role="FromRole_to_Footer"/>
-                <End Type="cds_zsd_financialstatements.SAP__PDFFooter" Multiplicity="1" Role="ToRole_to_Footer"/>
+                <End Type="cds_zsd_inventoryledgermasterdata.SAP__DocumentDescription" Multiplicity="1" Role="FromRole_to_Footer"/>
+                <End Type="cds_zsd_inventoryledgermasterdata.SAP__PDFFooter" Multiplicity="1" Role="ToRole_to_Footer"/>
                 <ReferentialConstraint>
                     <Principal Role="FromRole_to_Footer">
                         <PropertyRef Name="Id"/>
@@ -340,98 +320,165 @@
                     </Dependent>
                 </ReferentialConstraint>
             </Association>
-            <EntityContainer Name="cds_zsd_financialstatements_Entities" m:IsDefaultEntityContainer="true" sap:message-scope-supported="true" sap:supported-formats="atom json xlsx pdf">
-                <EntitySet Name="FinancialStatements" EntityType="cds_zsd_financialstatements.FinancialStatementsType" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1"/>
-                <EntitySet Name="GLAccount_VH" EntityType="cds_zsd_financialstatements.GLAccount_VHType" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1"/>
-                <EntitySet Name="SAP__FormatSet" EntityType="cds_zsd_financialstatements.SAP__Format" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
-                <EntitySet Name="SAP__PDFStandardSet" EntityType="cds_zsd_financialstatements.SAP__PDFStandard" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
-                <EntitySet Name="SAP__TableColumnsSet" EntityType="cds_zsd_financialstatements.SAP__TableColumns" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
-                <EntitySet Name="SAP__CoverPageSet" EntityType="cds_zsd_financialstatements.SAP__CoverPage" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
-                <EntitySet Name="SAP__SignatureSet" EntityType="cds_zsd_financialstatements.SAP__Signature" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
-                <EntitySet Name="SAP__HierarchySet" EntityType="cds_zsd_financialstatements.SAP__Hierarchy" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
-                <EntitySet Name="SAP__PDFHeaderSet" EntityType="cds_zsd_financialstatements.SAP__PDFHeader" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
-                <EntitySet Name="SAP__PDFFooterSet" EntityType="cds_zsd_financialstatements.SAP__PDFFooter" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
-                <EntitySet Name="SAP__ValueHelpSet" EntityType="cds_zsd_financialstatements.SAP__ValueHelp" sap:content-version="1"/>
-                <EntitySet Name="SAP__Currencies" EntityType="cds_zsd_financialstatements.SAP__Currency" sap:content-version="1"/>
-                <EntitySet Name="SAP__UnitsOfMeasure" EntityType="cds_zsd_financialstatements.SAP__UnitOfMeasure" sap:content-version="1"/>
-                <EntitySet Name="SAP__MyDocumentDescriptions" EntityType="cds_zsd_financialstatements.SAP__DocumentDescription" sap:content-version="1"/>
-                <EntitySet Name="SAP__FileShareSet" EntityType="cds_zsd_financialstatements.SAP__FileShare" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
-                <AssociationSet Name="to_HierarchySet" Association="cds_zsd_financialstatements.to_Hierarchy" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1">
+            <EntityContainer Name="cds_zsd_inventoryledgermasterdata_Entities" m:IsDefaultEntityContainer="true" sap:message-scope-supported="true" sap:supported-formats="atom json xlsx pdf">
+                <EntitySet Name="GLMTMaster" EntityType="cds_zsd_inventoryledgermasterdata.GLMTMasterType" sap:searchable="true" sap:content-version="1" sap:deletable-path="Delete_mc" sap:updatable-path="Update_mc"/>
+                <EntitySet Name="MaterialCateSeg" EntityType="cds_zsd_inventoryledgermasterdata.MaterialCateSegType" sap:searchable="true" sap:content-version="1" sap:deletable-path="Delete_mc" sap:updatable-path="Update_mc"/>
+                <EntitySet Name="SAP__FormatSet" EntityType="cds_zsd_inventoryledgermasterdata.SAP__Format" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
+                <EntitySet Name="SAP__PDFStandardSet" EntityType="cds_zsd_inventoryledgermasterdata.SAP__PDFStandard" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
+                <EntitySet Name="SAP__TableColumnsSet" EntityType="cds_zsd_inventoryledgermasterdata.SAP__TableColumns" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
+                <EntitySet Name="SAP__CoverPageSet" EntityType="cds_zsd_inventoryledgermasterdata.SAP__CoverPage" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
+                <EntitySet Name="SAP__SignatureSet" EntityType="cds_zsd_inventoryledgermasterdata.SAP__Signature" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
+                <EntitySet Name="SAP__HierarchySet" EntityType="cds_zsd_inventoryledgermasterdata.SAP__Hierarchy" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
+                <EntitySet Name="SAP__PDFHeaderSet" EntityType="cds_zsd_inventoryledgermasterdata.SAP__PDFHeader" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
+                <EntitySet Name="SAP__PDFFooterSet" EntityType="cds_zsd_inventoryledgermasterdata.SAP__PDFFooter" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
+                <EntitySet Name="SAP__ValueHelpSet" EntityType="cds_zsd_inventoryledgermasterdata.SAP__ValueHelp" sap:content-version="1"/>
+                <EntitySet Name="SAP__Currencies" EntityType="cds_zsd_inventoryledgermasterdata.SAP__Currency" sap:content-version="1"/>
+                <EntitySet Name="SAP__UnitsOfMeasure" EntityType="cds_zsd_inventoryledgermasterdata.SAP__UnitOfMeasure" sap:content-version="1"/>
+                <EntitySet Name="SAP__MyDocumentDescriptions" EntityType="cds_zsd_inventoryledgermasterdata.SAP__DocumentDescription" sap:content-version="1"/>
+                <EntitySet Name="SAP__FileShareSet" EntityType="cds_zsd_inventoryledgermasterdata.SAP__FileShare" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
+                <AssociationSet Name="to_HierarchySet" Association="cds_zsd_inventoryledgermasterdata.to_Hierarchy" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1">
                     <End EntitySet="SAP__MyDocumentDescriptions" Role="FromRole_to_Hierarchy"/>
                     <End EntitySet="SAP__HierarchySet" Role="ToRole_to_Hierarchy"/>
                 </AssociationSet>
-                <AssociationSet Name="to_tablecolumnsSet" Association="cds_zsd_financialstatements.to_tablecolumns" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1">
+                <AssociationSet Name="to_tablecolumnsSet" Association="cds_zsd_inventoryledgermasterdata.to_tablecolumns" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1">
                     <End EntitySet="SAP__MyDocumentDescriptions" Role="FromRole_to_tablecolumns"/>
                     <End EntitySet="SAP__TableColumnsSet" Role="ToRole_to_tablecolumns"/>
                 </AssociationSet>
-                <AssociationSet Name="to_headerSet" Association="cds_zsd_financialstatements.to_header" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1">
+                <AssociationSet Name="to_headerSet" Association="cds_zsd_inventoryledgermasterdata.to_header" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1">
                     <End EntitySet="SAP__MyDocumentDescriptions" Role="FromRole_to_header"/>
                     <End EntitySet="SAP__PDFHeaderSet" Role="ToRole_to_header"/>
                 </AssociationSet>
-                <AssociationSet Name="to_FooterSet" Association="cds_zsd_financialstatements.to_Footer" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1">
+                <AssociationSet Name="to_FooterSet" Association="cds_zsd_inventoryledgermasterdata.to_Footer" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1">
                     <End EntitySet="SAP__MyDocumentDescriptions" Role="FromRole_to_Footer"/>
                     <End EntitySet="SAP__PDFFooterSet" Role="ToRole_to_Footer"/>
                 </AssociationSet>
-                <AssociationSet Name="to_formatSet" Association="cds_zsd_financialstatements.to_format" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1">
+                <AssociationSet Name="to_formatSet" Association="cds_zsd_inventoryledgermasterdata.to_format" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1">
                     <End EntitySet="SAP__MyDocumentDescriptions" Role="FromRole_to_format"/>
                     <End EntitySet="SAP__FormatSet" Role="ToRole_to_format"/>
                 </AssociationSet>
-                <AssociationSet Name="to_fileshareSet" Association="cds_zsd_financialstatements.to_fileshare" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1">
+                <AssociationSet Name="to_fileshareSet" Association="cds_zsd_inventoryledgermasterdata.to_fileshare" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1">
                     <End EntitySet="SAP__MyDocumentDescriptions" Role="FromRole_to_fileshare"/>
                     <End EntitySet="SAP__FileShareSet" Role="ToRole_to_fileshare"/>
                 </AssociationSet>
-                <AssociationSet Name="to_pdfstandardSet" Association="cds_zsd_financialstatements.to_pdfstandard" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1">
+                <AssociationSet Name="to_pdfstandardSet" Association="cds_zsd_inventoryledgermasterdata.to_pdfstandard" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1">
                     <End EntitySet="SAP__MyDocumentDescriptions" Role="FromRole_to_pdfstandard"/>
                     <End EntitySet="SAP__PDFStandardSet" Role="ToRole_to_pdfstandard"/>
                 </AssociationSet>
-                <AssociationSet Name="to_signatureSet" Association="cds_zsd_financialstatements.to_signature" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1">
+                <AssociationSet Name="to_signatureSet" Association="cds_zsd_inventoryledgermasterdata.to_signature" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1">
                     <End EntitySet="SAP__MyDocumentDescriptions" Role="FromRole_to_signature"/>
                     <End EntitySet="SAP__SignatureSet" Role="ToRole_to_signature"/>
                 </AssociationSet>
-                <AssociationSet Name="to_coverpageSet" Association="cds_zsd_financialstatements.to_coverpage" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1">
+                <AssociationSet Name="to_coverpageSet" Association="cds_zsd_inventoryledgermasterdata.to_coverpage" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1">
                     <End EntitySet="SAP__MyDocumentDescriptions" Role="FromRole_to_coverpage"/>
                     <End EntitySet="SAP__CoverPageSet" Role="ToRole_to_coverpage"/>
                 </AssociationSet>
             </EntityContainer>
             <Annotation Term="Core.SchemaVersion" String="1.0.0" xmlns="http://docs.oasis-open.org/odata/ns/edm"/>
-            <Annotations Target="cds_zsd_financialstatements.cds_zsd_financialstatements_Entities" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.cds_zsd_inventoryledgermasterdata_Entities" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="Common.ApplyMultiUnitBehaviorForSortingAndFiltering" Bool="true"/>
             </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.cds_zsd_financialstatements_Entities/FinancialStatements" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.cds_zsd_inventoryledgermasterdata_Entities/GLMTMaster" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="Capabilities.DeleteRestrictions">
                     <Record>
-                        <PropertyValue Property="Deletable" Bool="false"/>
+                        <PropertyValue Property="Deletable" Path="Delete_mc"/>
+                    </Record>
+                </Annotation>
+                <Annotation Term="Capabilities.FilterRestrictions">
+                    <Record>
+                        <PropertyValue Property="NonFilterableProperties">
+                            <Collection>
+                                <PropertyPath>Delete_mc</PropertyPath>
+                                <PropertyPath>Update_mc</PropertyPath>
+                            </Collection>
+                        </PropertyValue>
                     </Record>
                 </Annotation>
                 <Annotation Term="Capabilities.InsertRestrictions">
                     <Record>
-                        <PropertyValue Property="Insertable" Bool="false"/>
+                        <PropertyValue Property="Insertable" Bool="true"/>
+                    </Record>
+                </Annotation>
+                <Annotation Term="SAP__core.OptimisticConcurrency">
+                    <Collection/>
+                </Annotation>
+                <Annotation Term="Capabilities.SortRestrictions">
+                    <Record>
+                        <PropertyValue Property="NonSortableProperties">
+                            <Collection>
+                                <PropertyPath>Delete_mc</PropertyPath>
+                                <PropertyPath>Update_mc</PropertyPath>
+                            </Collection>
+                        </PropertyValue>
                     </Record>
                 </Annotation>
                 <Annotation Term="Capabilities.UpdateRestrictions">
                     <Record>
-                        <PropertyValue Property="Updatable" Bool="false"/>
+                        <PropertyValue Property="Updatable" Path="Update_mc"/>
                     </Record>
                 </Annotation>
             </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.cds_zsd_financialstatements_Entities/GLAccount_VH" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.cds_zsd_inventoryledgermasterdata_Entities/MaterialCateSeg" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="Capabilities.DeleteRestrictions">
                     <Record>
-                        <PropertyValue Property="Deletable" Bool="false"/>
+                        <PropertyValue Property="Deletable" Path="Delete_mc"/>
+                    </Record>
+                </Annotation>
+                <Annotation Term="Capabilities.FilterRestrictions">
+                    <Record>
+                        <PropertyValue Property="NonFilterableProperties">
+                            <Collection>
+                                <PropertyPath>Delete_mc</PropertyPath>
+                                <PropertyPath>Update_mc</PropertyPath>
+                            </Collection>
+                        </PropertyValue>
                     </Record>
                 </Annotation>
                 <Annotation Term="Capabilities.InsertRestrictions">
                     <Record>
-                        <PropertyValue Property="Insertable" Bool="false"/>
+                        <PropertyValue Property="Insertable" Bool="true"/>
+                    </Record>
+                </Annotation>
+                <Annotation Term="SAP__core.OptimisticConcurrency">
+                    <Collection/>
+                </Annotation>
+                <Annotation Term="Capabilities.SortRestrictions">
+                    <Record>
+                        <PropertyValue Property="NonSortableProperties">
+                            <Collection>
+                                <PropertyPath>Delete_mc</PropertyPath>
+                                <PropertyPath>Update_mc</PropertyPath>
+                            </Collection>
+                        </PropertyValue>
                     </Record>
                 </Annotation>
                 <Annotation Term="Capabilities.UpdateRestrictions">
                     <Record>
-                        <PropertyValue Property="Updatable" Bool="false"/>
+                        <PropertyValue Property="Updatable" Path="Update_mc"/>
                     </Record>
                 </Annotation>
             </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.cds_zsd_financialstatements_Entities" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.GLMTMasterType/ClassName" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+                <Annotation Term="Common.FieldControl" EnumMember="Common.FieldControlType/Optional"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.GLMTMasterType/GLAccount" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+                <Annotation Term="Common.FieldControl" EnumMember="Common.FieldControlType/Optional"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.GLMTMasterType/GLAccountName" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+                <Annotation Term="Common.FieldControl" EnumMember="Common.FieldControlType/Optional"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.GLMTMasterType/MaterialvaluationClass" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+                <Annotation Term="Common.FieldControl" EnumMember="Common.FieldControlType/Optional"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.MaterialCateSegType/Materialledgercategory" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+                <Annotation Term="Common.FieldControl" EnumMember="Common.FieldControlType/Optional"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.MaterialCateSegType/Materialledgercategorytext" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+                <Annotation Term="Common.FieldControl" EnumMember="Common.FieldControlType/Optional"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.MaterialCateSegType/Sequence" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+                <Annotation Term="Common.FieldControl" EnumMember="Common.FieldControlType/Optional"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.cds_zsd_inventoryledgermasterdata_Entities" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="Org.OData.Capabilities.V1.BatchSupport">
                     <Record Type="Org.OData.Capabilities.V1.BatchSupportType">
                         <PropertyValue Property="ReferencesAcrossChangeSetsSupported" Bool="true"/>
@@ -478,54 +525,18 @@
                     </Record>
                 </Annotation>
             </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.FinancialStatementsType/P_COMPCD" xmlns="http://docs.oasis-open.org/odata/ns/edm">
-                <Annotation Term="SAP__common.DocumentationRef" String="urn:sap-com:documentation:key?=type=DE&amp;id=BUKRS&amp;origin=PZE_100"/>
-            </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.FinancialStatementsType/P_CYEAR" xmlns="http://docs.oasis-open.org/odata/ns/edm">
-                <Annotation Term="SAP__common.DocumentationRef" String="urn:sap-com:documentation:key?=type=DE&amp;id=GJAHR&amp;origin=PZE_100"/>
-            </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.FinancialStatementsType/P_CENDMONTH" xmlns="http://docs.oasis-open.org/odata/ns/edm">
-                <Annotation Term="SAP__common.DocumentationRef" String="urn:sap-com:documentation:key?=type=DE&amp;id=POPER&amp;origin=PZE_100"/>
-            </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.FinancialStatementsType/P_SYEAR" xmlns="http://docs.oasis-open.org/odata/ns/edm">
-                <Annotation Term="SAP__common.DocumentationRef" String="urn:sap-com:documentation:key?=type=DE&amp;id=GJAHR&amp;origin=PZE_100"/>
-            </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.FinancialStatementsType/P_CMONTH" xmlns="http://docs.oasis-open.org/odata/ns/edm">
-                <Annotation Term="SAP__common.DocumentationRef" String="urn:sap-com:documentation:key?=type=DE&amp;id=POPER&amp;origin=PZE_100"/>
-            </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.FinancialStatementsType/P_GLACCOUNT" xmlns="http://docs.oasis-open.org/odata/ns/edm">
-                <Annotation Term="SAP__common.DocumentationRef" String="urn:sap-com:documentation:key?=type=DE&amp;id=SAKNR&amp;origin=PZE_100"/>
-            </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.FinancialStatementsType/P_SMONTH" xmlns="http://docs.oasis-open.org/odata/ns/edm">
-                <Annotation Term="SAP__common.DocumentationRef" String="urn:sap-com:documentation:key?=type=DE&amp;id=POPER&amp;origin=PZE_100"/>
-            </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.FinancialStatementsType/GlAccount" xmlns="http://docs.oasis-open.org/odata/ns/edm">
-                <Annotation Term="SAP__common.DocumentationRef" String="urn:sap-com:documentation:key?=type=DE&amp;id=SAKNR&amp;origin=PZE_100"/>
-            </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.FinancialStatementsType/P_SENDMONTH" xmlns="http://docs.oasis-open.org/odata/ns/edm">
-                <Annotation Term="SAP__common.DocumentationRef" String="urn:sap-com:documentation:key?=type=DE&amp;id=POPER&amp;origin=PZE_100"/>
-            </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.GLAccount_VHType/ChartOfAccounts" xmlns="http://docs.oasis-open.org/odata/ns/edm">
-                <Annotation Term="SAP__common.DocumentationRef" String="urn:sap-com:documentation:key?=type=DE&amp;id=KTOPL&amp;origin=PZE_100"/>
-            </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.GLAccount_VHType/Language" xmlns="http://docs.oasis-open.org/odata/ns/edm">
-                <Annotation Term="SAP__common.DocumentationRef" String="urn:sap-com:documentation:key?=type=DE&amp;id=SPRAS&amp;origin=PZE_100"/>
-            </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.GLAccount_VHType/GLAccount" xmlns="http://docs.oasis-open.org/odata/ns/edm">
-                <Annotation Term="SAP__common.DocumentationRef" String="urn:sap-com:documentation:key?=type=DE&amp;id=SAKNR&amp;origin=PZE_100"/>
-            </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.SAP__Currency/CurrencyCode" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.SAP__Currency/CurrencyCode" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="SAP__common.Text" Path="Text"/>
                 <Annotation Term="SAP__common.UnitSpecificScale" Path="DecimalPlaces"/>
                 <Annotation Term="SAP__CodeList.StandardCode" Path="ISOCode"/>
             </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.SAP__UnitOfMeasure/UnitCode" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.SAP__UnitOfMeasure/UnitCode" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="SAP__common.Text" Path="Text"/>
                 <Annotation Term="SAP__common.UnitSpecificScale" Path="DecimalPlaces"/>
                 <Annotation Term="SAP__CodeList.StandardCode" Path="ISOCode"/>
                 <Annotation Term="SAP__CodeList.ExternalCode" Path="ExternalCode"/>
             </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.SAP__UnitOfMeasure" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.SAP__UnitOfMeasure" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="SAP__core.AlternateKeys">
                     <Collection>
                         <Record>
@@ -541,17 +552,17 @@
                     </Collection>
                 </Annotation>
             </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.SAP__DocumentDescription/CreatedBy" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.SAP__DocumentDescription/CreatedBy" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="SAP__core.Computed"/>
             </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.SAP__DocumentDescription/CreatedAt" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.SAP__DocumentDescription/CreatedAt" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="SAP__core.Computed"/>
             </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.SAP__Format/TextDirectionLayout" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.SAP__Format/TextDirectionLayout" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="SAP__core.Description" String="Setting the text direction-layout is supported"/>
                 <Annotation Term="SAP__core.LongDescription" String="PDF supports setting the text direction-layout (e.g. left-to-right or right-to-left) in the document description"/>
             </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.SAP__DocumentDescription" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.SAP__DocumentDescription" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="SAP__capabilties.InsertRestrictions">
                     <Record>
                         <PropertyValue Property="Insertable" Bool="false"/>
@@ -589,7 +600,7 @@
                     </Record>
                 </Annotation>
             </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.SAP__Format/FitToPage/ErrorRecoveryBehavior" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.SAP__Format/FitToPage/ErrorRecoveryBehavior" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="SAP__common.ValueListReferences">
                     <Record>
                         <PropertyValue Property="Url" String="./$metadata"/>
@@ -598,7 +609,7 @@
                 </Annotation>
                 <Annotation Term="SAP__common.ValueListWithFixedValues"/>
             </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.SAP__Format/FontName" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.SAP__Format/FontName" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="SAP__common.ValueListReferences">
                     <Record>
                         <PropertyValue Property="Url" String="./$metadata"/>
@@ -607,7 +618,7 @@
                 </Annotation>
                 <Annotation Term="SAP__common.ValueListWithFixedValues"/>
             </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.SAP__Format/PaperSize" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.SAP__Format/PaperSize" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="SAP__common.ValueListReferences">
                     <Record>
                         <PropertyValue Property="Url" String="./$metadata"/>
@@ -616,7 +627,7 @@
                 </Annotation>
                 <Annotation Term="SAP__common.ValueListWithFixedValues"/>
             </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.SAP__PDFHeader/Left" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.SAP__PDFHeader/Left" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="SAP__common.ValueListReferences">
                     <Record>
                         <PropertyValue Property="Url" String="./$metadata"/>
@@ -625,7 +636,7 @@
                 </Annotation>
                 <Annotation Term="SAP__common.ValueListWithFixedValues"/>
             </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.SAP__PDFHeader/Right" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.SAP__PDFHeader/Right" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="SAP__common.ValueListReferences">
                     <Record>
                         <PropertyValue Property="Url" String="./$metadata"/>
@@ -634,7 +645,7 @@
                 </Annotation>
                 <Annotation Term="SAP__common.ValueListWithFixedValues"/>
             </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.SAP__PDFHeader/Center" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.SAP__PDFHeader/Center" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="SAP__common.ValueListReferences">
                     <Record>
                         <PropertyValue Property="Url" String="./$metadata"/>
@@ -643,7 +654,7 @@
                 </Annotation>
                 <Annotation Term="SAP__common.ValueListWithFixedValues"/>
             </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.SAP__PDFFooter/Left" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.SAP__PDFFooter/Left" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="SAP__common.ValueListReferences">
                     <Record>
                         <PropertyValue Property="Url" String="./$metadata"/>
@@ -652,7 +663,7 @@
                 </Annotation>
                 <Annotation Term="SAP__common.ValueListWithFixedValues"/>
             </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.SAP__PDFFooter/Right" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.SAP__PDFFooter/Right" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="SAP__common.ValueListReferences">
                     <Record>
                         <PropertyValue Property="Url" String="./$metadata"/>
@@ -661,7 +672,7 @@
                 </Annotation>
                 <Annotation Term="SAP__common.ValueListWithFixedValues"/>
             </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.SAP__PDFFooter/Center" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.SAP__PDFFooter/Center" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="SAP__common.ValueListReferences">
                     <Record>
                         <PropertyValue Property="Url" String="./$metadata"/>
@@ -670,7 +681,7 @@
                 </Annotation>
                 <Annotation Term="SAP__common.ValueListWithFixedValues"/>
             </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.SAP__TableColumns/Format/Display_Format" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.SAP__TableColumns/Format/Display_Format" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="SAP__common.ValueListReferences">
                     <Record>
                         <PropertyValue Property="Url" String="./$metadata"/>
@@ -679,7 +690,7 @@
                 </Annotation>
                 <Annotation Term="SAP__common.ValueListWithFixedValues"/>
             </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.SAP__FileShare" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.SAP__FileShare" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="SAP__common.ValueListReferences">
                     <Record>
                         <PropertyValue Property="Url" String="./$metadata"/>
@@ -688,7 +699,7 @@
                 </Annotation>
                 <Annotation Term="SAP__common.ValueListWithFixedValues"/>
             </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.SAP__Format/Orientation" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.SAP__Format/Orientation" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="SAP__common.ValueListReferences">
                     <Record>
                         <PropertyValue Property="Url" String="./$metadata"/>
@@ -697,7 +708,7 @@
                 </Annotation>
                 <Annotation Term="SAP__common.ValueListWithFixedValues"/>
             </Annotations>
-            <Annotations Target="cds_zsd_financialstatements.SAP__TableColumns/HorizontalAlignment" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <Annotations Target="cds_zsd_inventoryledgermasterdata.SAP__TableColumns/HorizontalAlignment" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="SAP__common.ValueListReferences">
                     <Record>
                         <PropertyValue Property="Url" String="./$metadata"/>
@@ -706,8 +717,8 @@
                 </Annotation>
                 <Annotation Term="SAP__common.ValueListWithFixedValues"/>
             </Annotations>
-            <atom:link rel="self" href="https://my423435.s4hana.cloud.sap:443/sap/opu/odata/sap/ZSB_FISTATEMENTS_UI_O2/$metadata" xmlns:atom="http://www.w3.org/2005/Atom"/>
-            <atom:link rel="latest-version" href="https://my423435.s4hana.cloud.sap:443/sap/opu/odata/sap/ZSB_FISTATEMENTS_UI_O2/$metadata" xmlns:atom="http://www.w3.org/2005/Atom"/>
+            <atom:link rel="self" href="https://my423435.s4hana.cloud.sap:443/sap/opu/odata/sap/ZSB_ILMASTER_UI_O2/$metadata" xmlns:atom="http://www.w3.org/2005/Atom"/>
+            <atom:link rel="latest-version" href="https://my423435.s4hana.cloud.sap:443/sap/opu/odata/sap/ZSB_ILMASTER_UI_O2/$metadata" xmlns:atom="http://www.w3.org/2005/Atom"/>
         </Schema>
     </edmx:DataServices>
 </edmx:Edmx>
