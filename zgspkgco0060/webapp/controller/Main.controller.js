@@ -700,47 +700,70 @@ sap.ui.define([
             sap.m.URLHelper.redirect(window.location.href.split('#')[0] + sHref, true);
         },
         // 총계정원장에서 개별 항목 조회
-        // _navigateToJournalEntry: async function (glAccount, companyCode, fromPeriod, toPeriod, fiscalYear, ) {
-        //     const Navigation = await sap.ushell.Container.getServiceAsync("Navigation");
-        //     const sHref = await Navigation.getHref({
+        _navigateToJournalEntry: async function (glAccount, companyCode, fromPeriod, toPeriod, fiscalYear,) {
+            const Navigation = await sap.ushell.Container.getServiceAsync("Navigation");
+            const sHref = await Navigation.getHref({
+                target: {
+                    semanticObject: "GLAccount", // 실제 등록된 Semantic Object로 변경
+                    action: "displayGLLineItemReportingView"
+                },
+                params: {
+                    GLAccount: glAccount,
+                    CompanyCode: companyCode,
+                    FiscalYear: fiscalYear,
+                }
+            });
+            sap.m.URLHelper.redirect(window.location.href.split('#')[0] + sHref, true);
+        },
+
+        // _navigateToJournalEntry: async function (glAccount, companyCode) {
+        //     const oDate = this.getView().getModel("DateRange").getData();
+
+        //     const parseDate = (val) => {
+        //         if (val instanceof Date) return val;
+        //         if (typeof val === "string") return new Date(val + "T00:00:00");
+        //         return new Date(); // fallback
+        //     };
+
+        //     const priorStart = parseDate(oDate.priorStart);
+        //     const priorEnd = parseDate(oDate.priorEnd);
+
+        //     const fromDate = priorStart.toISOString().slice(0, 10); // "YYYY-MM-DD"
+        //     const toDate = priorEnd.toISOString().slice(0, 10);     // "YYYY-MM-DD"
+
+        //     const oFilterData = {
+        //         PostingDate: {
+        //             ranges: [{
+        //                 exclude: false,
+        //                 operation: "BT",
+        //                 keyField: "PostingDate",
+        //                 value1: fromDate,
+        //                 value2: toDate
+        //             }],
+        //             items: []
+        //         },
+        //         GLAccount: {
+        //             items: [{ key: glAccount, text: glAccount }],
+        //             ranges: []
+        //         },
+        //         CompanyCode: {
+        //             items: [{ key: companyCode, text: companyCode }],
+        //             ranges: []
+        //         }
+        //     };
+
+        //     const oCrossAppNav = await sap.ushell.Container.getServiceAsync("CrossApplicationNavigation");
+        //     oCrossAppNav.toExternal({
         //         target: {
-        //             semanticObject: "GLAccount", // 실제 등록된 Semantic Object로 변경
+        //             semanticObject: "GLAccount",
         //             action: "displayGLLineItemReportingView"
         //         },
         //         params: {
-        //             GLAccount: glAccount,
-        //             CompanyCode: companyCode,
-        //             FiscalPeriod: `BT${fromPeriod}..${toPeriod}`,
-        //             FiscalYear: fiscalYear,
+        //             "sap-xapp-state": await this._createAppState(oFilterData)
         //         }
         //     });
-        //     sap.m.URLHelper.redirect(window.location.href.split('#')[0] + sHref, true);
         // }
-        _navigateToJournalEntry: function (glAccount, companyCode, fromPeriod, toPeriod, fiscalYear) {
 
-            // URL에 전달할 필터 객체를 생성합니다.
-            const oFilter = {
-                FiscalPeriod: {  // ✅ 키를 'FiscalPeriod'로 수정
-                    ranges: [{
-                        exclude: false,
-                        operation: 'BT', // 'Between' 연산자
-                        value1: fromPeriod,
-                        value2: toPeriod
-                    }],
-                    items: []
-                }
-            };
-
-            // URL 매개변수들을 정의하고, 값을 URL 인코딩합니다.
-            const sShellHash = `#GLAccount-displayGLLineItemReportingView?` +
-                `GLAccount=${encodeURIComponent(glAccount)}&` +
-                `CompanyCode=${encodeURIComponent(companyCode)}&` +
-                `FiscalYear=${encodeURIComponent(fiscalYear)}&` +
-                `FiscalPeriod=${encodeURIComponent(JSON.stringify(oFilter.LedgerFiscalPeriod))}`; // ✅ 여기에 맞춰져야 함
-
-            // 생성된 URL로 이동
-            sap.m.URLHelper.redirect(window.location.href.split('#')[0] + sShellHash, true);
-        }
 
 
     });
