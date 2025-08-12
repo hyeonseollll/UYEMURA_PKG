@@ -28,7 +28,7 @@ sap.ui.define([
                 return new sap.ui.model.json.JSONModel({
                     CompanyCode: "4310 (한국우에무라)",  
                     ToDate: new Date(),
-                    RunType: "UYE_ML",
+                    RunType: "UY_ML",
                     CheckGL: true
                 });
             }
