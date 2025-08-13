@@ -11,8 +11,9 @@ sap.ui.define([
     "sap/m/Token",
     "sap/m/Label",
     "sap/m/Text",
-    "com/gsitm/pkg/co/zgspkgco0060/formatter/formatter"
-], (Controller, Model, Filter, FilterOperator, exportLibrary, Spreadsheet, JSONModel, SearchField, Column, Token, Label, Text, formatter) => {
+    "com/gsitm/pkg/co/zgspkgco0060/formatter/formatter",
+    "sap/m/MessageBox"
+], (Controller, Model, Filter, FilterOperator, exportLibrary, Spreadsheet, JSONModel, SearchField, Column, Token, Label, Text, formatter, MessageBox) => {
     "use strict";
     const EdmType = exportLibrary.EdmType;
     const Control = {
@@ -41,58 +42,96 @@ sap.ui.define([
         /******************************************************************
              * Life Cycle
              ******************************************************************/
+        // onInit: function () {
+        //     // i18n Init
+        //     this.i18n = this.getOwnerComponent().getModel("i18n").getResourceBundle();
+        //     oView = this.getView();
+        //     oView.setModel(new JSONModel(), "oResult");
+        //     oView.setModel(Model.createDateRangeModel(), 'DateRange');
+        //     // ▼ 월/연도 MultiInput 토큰 세팅 + validator 연결
+        //     this._initMonthYearInputs();
+
+        //     //GL 데이터
+        //     oView.setModel(new JSONModel(), "oGLAccount");
+        //     vVHGL = oView.getModel("oGLAccount"),
+        //         Model.readODataModel("ZSB_FISTATEMENTS_UI_O2", "GLAccount_VH", null, null, null)
+        //             .then((vMVGLH) => {
+        //                 vVHGL.setProperty("/", vMVGLH.results); // results로 바인딩
+        //             })
+        //             .catch((err) => console.error(err));
+
+
+        //     //---------------------------------------------------------------/
+        //     // Change Filterbar's Go Text
+        //     //---------------------------------------------------------------/
+        //     let oFilter = this.byId(Control.FilterBar.FB_MainSearch);
+        //     oFilter.addEventDelegate({
+        //         "onAfterRendering": function (oEvent) {
+        //             let oButton = oEvent.srcControl._oSearchButton;
+        //             if (oButton) {
+        //                 oButton.setText(this.i18n.getText("goButton"));
+        //             }
+        //         }.bind(this)
+        //     });
+
+        //     //---------------------------------------------------------------/
+        //     // Search Model 
+        //     //---------------------------------------------------------------/
+        //     this.getView().setModel(Model.createSearchModel(), 'Search');
+
+        //     //---------------------------------------------------------------/
+        //     // Search Model 
+        //     //---------------------------------------------------------------/
+        //     let oTreeTable = this.getView().byId(Control.Table.T_Main);
+        //     //this._bindTable(oTreeTable);
+        // },
+
         onInit: function () {
-            // i18n Init
+            // i18n
             this.i18n = this.getOwnerComponent().getModel("i18n").getResourceBundle();
+
+            // 뷰/모델
             oView = this.getView();
             oView.setModel(new JSONModel(), "oResult");
-            oView.setModel(Model.createDateRangeModel(), 'DateRange');
+            oView.setModel(Model.createDateRangeModel(), "DateRange");
+            this.getView().setModel(Model.createSearchModel(), "Search");
 
-            //GL 데이터
+            // GL VH 모델
             oView.setModel(new JSONModel(), "oGLAccount");
-            vVHGL = oView.getModel("oGLAccount"),
-                Model.readODataModel("ZSB_FISTATEMENTS_UI_O2", "GLAccount_VH", null, null, null)
-                    .then((vMVGLH) => {
-                        vVHGL.setProperty("/", vMVGLH.results); // results로 바인딩
-                    })
-                    .catch((err) => console.error(err));
+            vVHGL = oView.getModel("oGLAccount");
+            Model.readODataModel("ZSB_FISTATEMENTS_UI_O2", "GLAccount_VH", null, null, null)
+                .then((res) => vVHGL.setProperty("/", res.results))
+                .catch(console.error);
 
+            // FilterBar Go 버튼 텍스트 변경 ( setGoButtonText 사용 X)
+            const oFB = this.byId(Control.FilterBar.FB_MainSearch);
+            if (oFB) {
+                oFB.addEventDelegate({
+                    onAfterRendering: function (ev) {
+                        const btn = ev.srcControl && ev.srcControl._oSearchButton;
+                        if (btn) {
+                            // 번들 키: goButton (권장) / 또는 Search 키를 i18n에 추가
+                            btn.setText(this.i18n.getText("goButton"));
+                        }
+                    }.bind(this),
+                });
+            }
 
-            //---------------------------------------------------------------/
-            // Change Filterbar's Go Text
-            //---------------------------------------------------------------/
-            let oFilter = this.byId(Control.FilterBar.FB_MainSearch);
-            oFilter.addEventDelegate({
-                "onAfterRendering": function (oEvent) {
-                    let oButton = oEvent.srcControl._oSearchButton;
-                    if (oButton) {
-                        oButton.setText(this.i18n.getText("goButton"));
-                    }
-                }.bind(this)
-            });
+            // 월/연도 MultiInput 초기 토큰 + validator 연결
+            this._initMonthYearInputs();
 
-            //---------------------------------------------------------------/
-            // Search Model 
-            //---------------------------------------------------------------/
-            this.getView().setModel(Model.createSearchModel(), 'Search');
+            // (선택) 기본 회사코드 세팅
+            const oSearch = this.getView().getModel("Search");
+            if (!oSearch.getProperty("/CompanyCode")) {
+                oSearch.setProperty("/CompanyCode", "4310"); // 환경에 맞게
+            }
 
-            //---------------------------------------------------------------/
-            // Search Model 
-            //---------------------------------------------------------------/
-            let oTreeTable = this.getView().byId(Control.Table.T_Main);
-            //this._bindTable(oTreeTable);
+            // 초기 조회
+            this._bInitialExpandDone = false;
+            const oTreeTable = this.byId(Control.Table.T_Main);
+            this._bindTable(oTreeTable);
         },
 
-        // onAfterRendering: function () {
-        //     let oTable = this.byId(Control.Table.T_Main);
-
-        //     if (oTable && typeof oTable.attachCollapse === "function") {
-        //         oTable.attachCollapse(this.onCollapse.bind(this));
-        //         oTable.attachExpand(this.onExpand.bind(this));
-        //     } else {
-        //         console.error("TreeTable not ready or not found", oTable);
-        //     }
-        // },
 
         onAfterRendering: function () {
             let oTable = this.byId(Control.Table.T_Main);
@@ -101,8 +140,6 @@ sap.ui.define([
                 oTable.attachCollapse(this.onCollapse.bind(this));
                 oTable.attachExpand(this.onExpand.bind(this));
 
-                // 🚩 컬럼을 다시 생성하는 로직을 추가합니다.
-                // 이렇게 하면 테이블이 렌더링될 때마다 컬럼이 재정의됩니다.
                 this._bindColumns(oTable);
             } else {
                 console.error("TreeTable not ready or not found", oTable);
@@ -113,16 +150,28 @@ sap.ui.define([
         /******************************************************************
          * Event Listener
          ******************************************************************/
-        onSearch: function (oEvent) {
-            console.log(this.getView().getModel("Search").getData());
+        onSearch: function () {
+            // 토큰값 읽기
+            const sPriorYear = this._getTokenVal("MI_PriorYear");
+            const sPriorStart = this._getTokenVal("MI_PriorStartMonth");
+            const sPriorEnd = this._getTokenVal("MI_PriorEndMonth");
+            const sCurrYear = this._getTokenVal("MI_CurrentYear");
+            const sCurrStart = this._getTokenVal("MI_CurrentStartMonth");
+            const sCurrEnd = this._getTokenVal("MI_CurrentEndMonth");
 
-            let oTable = this.getView().byId(Control.Table.T_Main);
-            oTable.unbindRows(); // 바인딩된 해제
-            this._bindTable(oTable);
+            // 필수값 체크 (팝업 에러)
+            if (!this._checkRequiredFields(sPriorYear, sCurrYear, sPriorStart, sPriorEnd, sCurrStart, sCurrEnd)) {
+                return;
+            }
+
+            // 바인딩 시작
+            const oTable = this.byId(Control.Table.T_Main);
+            if (!oTable) return;
+            oTable.setBusy(true);
+            oTable.unbindRows();
             this._bInitialExpandDone = false;
-
+            this._bindTable(oTable);
         },
-
         onExport: function () {
             let oBExcel = this.getView().byId(Control.Button.B_Excel);
             oBExcel.setBusy(true);
@@ -148,7 +197,7 @@ sap.ui.define([
                                 },
                                 dataSource: this.data,
                                 fileName: this.i18n.getText("title") + (new Date()).toISOString() + '.xlsx',
-                                worker: true // We need to disable worker because we are using a Mockserver as OData Service
+                                worker: true
                             };
 
                             oSheet = new Spreadsheet(oSettings);
@@ -302,108 +351,38 @@ sap.ui.define([
                 this._collapsedNodes.delete(sNodeId);
             }
         },
-
-        // onPeriodBalancePress: function (oEvent) {
-        //     const oContext = oEvent.getSource().getBindingContext();
-        //     const oData = oContext.getObject();
-        //     const glAccount = oData.GlAccount;
-        //     const companyCode = oData.CompanyCode || "4310";
-
-        //     // DateRange 모델에서 priorStart, priorEnd 가져오기
-        //     const oDate = this.getView().getModel("DateRange").getData();
-        //     const priorStart = new Date(oDate.priorStart);
-        //     const priorEnd = new Date(oDate.priorEnd);
-
-        //     const fiscalYear = priorStart.getFullYear(); // 전기 기준
-        //     const fromperiod = (priorStart.getMonth() + 1).toString().padStart(3, '0');
-        //     const toperiod = (priorEnd.getMonth() + 1).toString().padStart(3, '0');
-
-        //     if (!glAccount) {
-        //         sap.m.MessageToast.show("G/L 계정이 없습니다.");
-        //         return;
-        //     }
-
-        //     const oActionSheet = new sap.m.ActionSheet({
-        //         showCancelButton: true,
-        //         buttons: [
-        //             new sap.m.Button({
-        //                 text: "G/L 계정 잔액조회",
-        //                 press: () => this._navigateToGLBalance(glAccount, companyCode, fromperiod, toperiod, fiscalYear)
-        //             }),
-        //             new sap.m.Button({
-        //                 text: "총계정원장에서 개별 항목 조회",
-        //                 press: () => this._navigateToJournalEntry(glAccount, companyCode, fromperiod, toperiod, fiscalYear,)
-        //             })
-        //         ]
-        //     });
-
-        //     this.getView().addDependent(oActionSheet);
-        //     oActionSheet.openBy(oEvent.getSource());
-        // },
-
-        // ... in your controller.extend block
-        // ... in your controller.extend block
-
         onPeriodBalancePress: function (oEvent) {
-            const oLink = oEvent.getSource();
-            const oBindingContext = oLink.getBindingContext();
+            const oCtx = oEvent.getSource().getBindingContext();
+            if (!oCtx) return;
 
-            // 이 부분에서 바인딩 컨텍스트의 유효성을 먼저 확인합니다.
-            if (oBindingContext) {
-                const oData = oBindingContext.getObject();
+            const { GlAccount: glAccount, CompanyCode: companyCode = "4310" } = oCtx.getObject() || {};
+            if (!glAccount) { sap.m.MessageToast.show(this.i18n.getText("noGLAccount")); return; }
 
-                // G/L 계정 필드의 데이터가 존재하는지 확인합니다.
-                const glAccount = oData.GlAccount;
+            // 현재 필터(당기) 값 그대로
+            const year = this._getTokenVal("MI_PriorYear");          // "2025"
+            const fromM = this._getTokenVal("MI_PriorStartMonth");    // "005"
+            const toM = this._getTokenVal("MI_PriorEndMonth");      // "008"
 
-                // G/L 계정이 없으면 메시지를 표시하고 함수를 종료합니다.
-                // 이렇게 하면 상위 노드를 클릭했을 때 아무런 동작 없이 안전하게 처리됩니다.
-                if (!glAccount) {
-                    sap.m.MessageToast.show(this.i18n.getText("noGLAccount")); // i18n으로 처리된 메시지 사용
-                    return;
-                }
+            // 월 리스트 (총계정원장용)
+            const expand = (a, b) => Array.from({ length: Math.abs(+b - +a) + 1 }, (_, i) => String(Math.min(+a, +b) + i).padStart(3, "0"));
+            const periods = expand(fromM, toM);
 
-                const companyCode = oData.CompanyCode || "4310";
-
-                // DateRange 모델에서 priorStart, priorEnd 가져오기
-                const oDate = this.getView().getModel("DateRange").getData();
-                const priorStart = new Date(oDate.priorStart);
-                const priorEnd = new Date(oDate.priorEnd);
-
-                const fiscalYear = priorStart.getFullYear(); // 전기 기준
-                const fromperiod = (priorStart.getMonth() + 1).toString().padStart(3, '0');
-                const toperiod = (priorEnd.getMonth() + 1).toString().padStart(3, '0');
-                const FiscalPeriod = [{
-                    Sign: "I",
-                    Option: "BT",
-                    Low: fromperiod,
-                    High: toperiod
-                }];
-
-                // ActionSheet을 생성하여 버튼을 추가합니다.
-                const oActionSheet = new sap.m.ActionSheet({
-                    showCancelButton: true,
-                    buttons: [
-                        new sap.m.Button({
-                            text: "G/L 계정 잔액조회",
-                            press: () => this._navigateToGLBalance(glAccount, companyCode, fromperiod, toperiod, fiscalYear,)
-                        }),
-                        new sap.m.Button({
-                            text: "총계정원장에서 개별 항목 조회",
-                            press: () => this._navigateToJournalEntry(glAccount, companyCode, fromperiod, toperiod, fiscalYear)
-                        })
-                    ]
-                });
-
-                // ActionSheet을 열고, oEvent.getSource()를 기준으로 위치를 지정합니다.
-                this.getView().addDependent(oActionSheet);
-                oActionSheet.openBy(oEvent.getSource());
-            } else {
-                // 바인딩 컨텍스트가 없는 경우 (예: G/L 계정이 없는 상위 노드)
-                // 경고 메시지를 로그에 남기고 함수를 종료합니다.
-                console.warn("바인딩 컨텍스트를 찾을 수 없습니다. (G/L 계정이 없는 상위 노드일 가능성)");
-            }
+            const sheet = new sap.m.ActionSheet({
+                showCancelButton: true,
+                buttons: [
+                    new sap.m.Button({
+                        text: "G/L 계정 잔액조회",
+                        press: () => this._navigateToGLBalance(glAccount, companyCode, fromM, toM, year)
+                    }),
+                    new sap.m.Button({
+                        text: "총계정원장에서 개별 항목 조회",
+                        press: () => this._navigateToJournalEntry(glAccount, companyCode, year, periods)
+                    })
+                ]
+            });
+            this.getView().addDependent(sheet);
+            sheet.openBy(oEvent.getSource());
         },
-
 
         /******************************************************************
          * Private Function
@@ -453,64 +432,34 @@ sap.ui.define([
             oTable.setBusy(true);
         },
 
-        // _onTreeTableReceived: function () {
-        //     let oTable = this.getView().byId(Control.Table.T_Main);
-        //     oTable.expandToLevel(4);
-
-        //     var aIndices = oTable.getBinding("rows").getContexts(0, oTable.getBinding("rows").getLength());
-
-        //     aIndices.forEach(function (oContext, iIndex) {
-        //         var oRowData = oContext.getObject();
-
-
-        //         // if (oRowData.DrillState === "expanded") {
-        //         //     // 중요: index는 바뀔 수 있어서 안전하게 context 기반으로 처리해야 하나,
-        //         //     // 간단하게는 index로 처리 가능
-        //         //     try {
-        //         //         oTable.expand(iIndex);
-        //         //     } catch (e) {
-        //         //         console.warn("Expand failed at index", iIndex, e);
-        //         //     }
-        //         // }
-        //     });
-
-        //     oTable.setBusy(false);
-        // },
-
-        // ... in your controller.extend block
-
         _onTreeTableReceived: function () {
-            let oTable = this.getView().byId(Control.Table.T_Main);
-            oTable.setBusy(false);
+            const oTable = this.byId(Control.Table.T_Main);
+            const oBinding = oTable.getBinding("rows");
 
-            // Initial expansion up to level 4 and initialize the set
+            // 데이터 도착 시점부터 Busy 유지
+            oTable.setBusy(true);
+
             if (!this._bInitialExpandDone) {
-                oTable.expandToLevel(4);
+                try { oTable.expandToLevel(5); } catch (e) { console.warn("expandToLevel failed:", e); }
                 this._bInitialExpandDone = true;
                 this._collapsedNodes = new Set();
-                return;
-            }
-
-            // After the initial load, re-apply the collapsed state
-            const aContexts = oTable.getBinding("rows").getContexts(0, oTable.getBinding("rows").getLength());
-            if (this._collapsedNodes) {
-                aContexts.forEach((oContext, iIndex) => {
-                    const oRowData = oContext.getObject();
-                    const sNodeId = oRowData.Node;
-
-                    if (this._collapsedNodes.has(sNodeId)) {
-                        // If this node was collapsed by the user, collapse it again
-                        try {
-                            oTable.collapse(iIndex);
-                        } catch (e) {
-                            console.warn("Collapse failed at", iIndex, e);
-                        }
+            } else if (this._collapsedNodes && this._collapsedNodes.size && oBinding) {
+                const aContexts = oBinding.getContexts(0, oBinding.getLength());
+                aContexts.forEach((ctx, idx) => {
+                    const id = ctx.getObject().Node;
+                    if (this._collapsedNodes.has(id)) {
+                        try { oTable.collapse(idx); } catch (e) { console.warn("collapse failed:", e); }
                     }
                 });
             }
+
+            // 노드가 모두 펼쳐지고 네트워크 요청이 끝나며 행 수가 '연속'으로 안정될 때 Busy OFF
+            this._busyUntilFullyExpanded(oTable, {
+                idleMs: 250,        // rowsUpdated 후 안정 대기 시간
+                stableRepeats: 2,   // 연속 2회 동일하면 안정으로 간주
+                timeoutMs: 15000    // 안전 타임아웃
+            });
         },
-
-
 
         _onCBCompanyRequested: function () {
             let oComboBox = this.getView().byId(Control.ComboBox.CB_CompanyCode);
@@ -521,41 +470,38 @@ sap.ui.define([
             let oComboBox = this.getView().byId(Control.ComboBox.CB_CompanyCode);
             oComboBox.setBusy(false);
         },
-
         _getTableFilter: function () {
             const oSearch = this.getView().getModel("Search").getData();
-            const oDate = this.getView().getModel("DateRange").getData();
 
-            const parseDate = (val) => {
-                if (val instanceof Date) return val;
-                if (typeof val === "string") return new Date(val + "T00:00:00");
-                return new Date(); // fallback
-            };
-
-            const priorStart = parseDate(oDate.priorStart);
-            const priorEnd = parseDate(oDate.priorEnd);
-            const currentStart = parseDate(oDate.currentStart);
-            const currentEnd = parseDate(oDate.currentEnd);
-
-
-            let aFilter = [];
-
-            // 전기
-            aFilter.push(new Filter("P_SYEAR", FilterOperator.EQ, priorStart.getFullYear()));
-            aFilter.push(new Filter("P_SMONTH", FilterOperator.EQ, (priorStart.getMonth() + 1 + "").padStart(3, '0')));
-            aFilter.push(new Filter("P_SENDMONTH", FilterOperator.EQ, (priorEnd.getMonth() + 1 + "").padStart(3, '0')));
+            // 전기(비교)
+            const sPriorYear = this._getTokenVal("MI_PriorYear");
+            const sPriorStart = this._getTokenVal("MI_PriorStartMonth");
+            const sPriorEnd = this._getTokenVal("MI_PriorEndMonth");
 
             // 당기
-            aFilter.push(new Filter("P_CYEAR", FilterOperator.EQ, currentStart.getFullYear()));
-            aFilter.push(new Filter("P_CMONTH", FilterOperator.EQ, (currentStart.getMonth() + 1 + "").padStart(3, '0')));
-            aFilter.push(new Filter("P_CENDMONTH", FilterOperator.EQ, (currentEnd.getMonth() + 1 + "").padStart(3, '0')));
+            const sCurrYear = this._getTokenVal("MI_CurrentYear");
+            const sCurrStart = this._getTokenVal("MI_CurrentStartMonth");
+            const sCurrEnd = this._getTokenVal("MI_CurrentEndMonth");
 
-            // 회사 코드
+            // // 필수값 체크
+            // if (!sPriorYear || !sCurrYear || !sPriorStart || !sPriorEnd || !sCurrStart || !sCurrEnd) {
+            //     sap.m.MessageToast.show("기준 기간과 비교 기간의 시작 월, 종료 월, 회계연도를 모두 입력하세요.");
+            // }
+
+            const aFilter = [];
+            // 전기
+            aFilter.push(new Filter("P_SYEAR", FilterOperator.EQ, sPriorYear));
+            aFilter.push(new Filter("P_SMONTH", FilterOperator.EQ, sPriorStart));
+            aFilter.push(new Filter("P_SENDMONTH", FilterOperator.EQ, sPriorEnd));
+            // 당기
+            aFilter.push(new Filter("P_CYEAR", FilterOperator.EQ, sCurrYear));
+            aFilter.push(new Filter("P_CMONTH", FilterOperator.EQ, sCurrStart));
+            aFilter.push(new Filter("P_CENDMONTH", FilterOperator.EQ, sCurrEnd));
+            // 회사코드
             aFilter.push(new Filter("P_COMPCD", FilterOperator.EQ, oSearch.CompanyCode.split(" ")[0]));
 
             return aFilter;
         },
-
 
         _createColumnConfig: function () {
             var aCols = [];
@@ -581,31 +527,13 @@ sap.ui.define([
                 width: 30
             });
 
-            // aCols.push({
-            //     label: this.i18n.getText("PeriodBalance"), // "당기 금액"
-            //     template: new sap.m.Link({
-            //         text: {
-            //             parts: [
-            //                 { path: 'PeriodBalance' },
-            //                 { path: 'CompanyCodeCurrency' }
-            //             ],
-            //             type: new sap.ui.model.type.Currency({
-            //                 showMeasure: false,
-            //                 currencyCode: false
-            //             })
-            //         },
-            //         press: this.onPeriodBalancePress.bind(this)
-            //     }),
-            //     width: "20rem"
-            // });
-
             aCols.push({
                 label: this.i18n.getText("PeriodBalance"), // "당기 금액"
                 template: new sap.m.HBox({
                     items: [
                         new sap.m.Link({
                             // GlAccount가 있을 때만 링크를 표시하고,
-                            // text와 press 이벤트도 조건부로 바인딩합니다.
+                            // text와 press 이벤트도 조건부로 바인딩
                             visible: "{= !!${GlAccount} }",
                             text: {
                                 path: 'PeriodBalance',
@@ -634,7 +562,6 @@ sap.ui.define([
                 }),
                 width: "20rem"
             });
-
 
             aCols.push({
                 label: this.i18n.getText("ComparisonBalance"), // "전기 금액"
@@ -670,7 +597,6 @@ sap.ui.define([
             return aCols;
         },
 
-
         _makeURL: function (sFilterParams, icount) {
             let sfilters = decodeURI(sFilterParams);
             let ofilters = {
@@ -681,90 +607,198 @@ sap.ui.define([
             }
             return ofilters;
         },
-        // GL 계정 잔액 조회
-        _navigateToGLBalance: async function (glAccount, companyCode, fromperiod, toperiod, fiscalYear) {
+        // GL 계정 잔액 조회 (현재 필터 기준)
+        _navigateToGLBalance: async function (glAccount, companyCode, fromPeriod, toPeriod, fiscalYear) {
+            if (!glAccount || !companyCode || !fromPeriod || !toPeriod || !fiscalYear) {
+                sap.m.MessageToast.show("잔액 조회에 필요한 값이 부족합니다.");
+                return;
+            }
+
+            // 000 보정 방침이 필요하면 여기서만 처리
+            const fix = (v, edge) => (v === "000" ? (edge === "from" ? "001" : "016") : v);
+            const FromPeriod = fix(fromPeriod, "from");
+            const ToPeriod = fix(toPeriod, "to");
+
             const Navigation = await sap.ushell.Container.getServiceAsync("Navigation");
             const sHref = await Navigation.getHref({
-                target: {
-                    semanticObject: "GLAccount", // 실제 등록된 Semantic Object로 변경
-                    action: "displayBalances"
-                },
+                target: { semanticObject: "GLAccount", action: "displayBalances" },
                 params: {
                     GLAccount: glAccount,
                     CompanyCode: companyCode,
-                    FromPeriod: fromperiod,
-                    ToPeriod: toperiod,
-                    LedgerFiscalYear: fiscalYear,
+                    FromPeriod: FromPeriod,
+                    ToPeriod: ToPeriod,
+                    LedgerFiscalYear: fiscalYear
                 }
             });
-            sap.m.URLHelper.redirect(window.location.href.split('#')[0] + sHref, true);
+            sap.m.URLHelper.redirect(window.location.href.split("#")[0] + sHref, true);
         },
-        // 총계정원장에서 개별 항목 조회
-        _navigateToJournalEntry: async function (glAccount, companyCode, fromPeriod, toPeriod, fiscalYear,) {
+
+
+        // 총계정원장에서 개별 항목 조회 (현재 필터 기준, FiscalPeriod 다건)
+        _navigateToJournalEntry: async function (glAccount, companyCode, fiscalYear, fiscalPeriods) {
+            if (!glAccount || !companyCode || !fiscalYear || !Array.isArray(fiscalPeriods) || fiscalPeriods.length === 0) {
+                sap.m.MessageToast.show("개별 항목 조회에 필요한 값이 부족합니다.");
+                return;
+            }
+
             const Navigation = await sap.ushell.Container.getServiceAsync("Navigation");
             const sHref = await Navigation.getHref({
-                target: {
-                    semanticObject: "GLAccount", // 실제 등록된 Semantic Object로 변경
-                    action: "displayGLLineItemReportingView"
-                },
+                target: { semanticObject: "GLAccount", action: "displayGLLineItemReportingView" },
                 params: {
                     GLAccount: glAccount,
                     CompanyCode: companyCode,
                     FiscalYear: fiscalYear,
+                    FiscalPeriod: fiscalPeriods // 배열 → key=val1&key=val2...
                 }
             });
-            sap.m.URLHelper.redirect(window.location.href.split('#')[0] + sHref, true);
+            sap.m.URLHelper.redirect(window.location.href.split("#")[0] + sHref, true);
         },
 
-        // _navigateToJournalEntry: async function (glAccount, companyCode) {
-        //     const oDate = this.getView().getModel("DateRange").getData();
+        // ====== 토큰 유틸 & 초기화 ======
+        _initMonthYearInputs: function () {
+            ["MI_PriorStartMonth", "MI_PriorEndMonth", "MI_CurrentStartMonth", "MI_CurrentEndMonth"]
+                .forEach(id => this._attachMonthValidator(id));
+            ["MI_PriorYear", "MI_CurrentYear"].forEach(id => this._attachYearValidator(id));
 
-        //     const parseDate = (val) => {
-        //         if (val instanceof Date) return val;
-        //         if (typeof val === "string") return new Date(val + "T00:00:00");
-        //         return new Date(); // fallback
-        //     };
+            const today = new Date();
+            const y = String(today.getFullYear());
+            const m = String(today.getMonth() + 1).padStart(3, "0"); // ← 현재 달(001~012)
 
-        //     const priorStart = parseDate(oDate.priorStart);
-        //     const priorEnd = parseDate(oDate.priorEnd);
+            // 시작월 기본값은 기존 정책 유지(000), 종료월은 현재 달로
+            this._setSingleToken("MI_PriorStartMonth", "000");
+            this._setSingleToken("MI_PriorEndMonth", m);   // ← 현재 달
+            this._setSingleToken("MI_CurrentStartMonth", "000");
+            this._setSingleToken("MI_CurrentEndMonth", m);   // ← 현재 달
 
-        //     const fromDate = priorStart.toISOString().slice(0, 10); // "YYYY-MM-DD"
-        //     const toDate = priorEnd.toISOString().slice(0, 10);     // "YYYY-MM-DD"
+            this._setSingleToken("MI_PriorYear", y);
+            this._setSingleToken("MI_CurrentYear", y);
+        },
 
-        //     const oFilterData = {
-        //         PostingDate: {
-        //             ranges: [{
-        //                 exclude: false,
-        //                 operation: "BT",
-        //                 keyField: "PostingDate",
-        //                 value1: fromDate,
-        //                 value2: toDate
-        //             }],
-        //             items: []
-        //         },
-        //         GLAccount: {
-        //             items: [{ key: glAccount, text: glAccount }],
-        //             ranges: []
-        //         },
-        //         CompanyCode: {
-        //             items: [{ key: companyCode, text: companyCode }],
-        //             ranges: []
-        //         }
-        //     };
+        _attachMonthValidator: function (sId) {
+            const mi = this.byId(sId);
+            if (!mi) return;
+            mi.addValidator(args => {
+                const raw = (args.text || "").trim();
+                if (!/^\d{1,3}$/.test(raw)) { sap.m.MessageToast.show("기간은 숫자 0~16입니다."); return null; }
+                let n = parseInt(raw, 10);
+                if (n < 0 || n > 16) { sap.m.MessageToast.show("기간은 000~016 범위입니다."); return null; }
+                const val = String(n).padStart(3, "0");
+                mi.destroyTokens(); // 단일 값 정책
+                return new sap.m.Token({ key: val, text: val });
+            });
+        },
 
-        //     const oCrossAppNav = await sap.ushell.Container.getServiceAsync("CrossApplicationNavigation");
-        //     oCrossAppNav.toExternal({
-        //         target: {
-        //             semanticObject: "GLAccount",
-        //             action: "displayGLLineItemReportingView"
-        //         },
-        //         params: {
-        //             "sap-xapp-state": await this._createAppState(oFilterData)
-        //         }
-        //     });
-        // }
+        _attachYearValidator: function (sId) {
+            const mi = this.byId(sId);
+            if (!mi) return;
+            mi.addValidator(args => {
+                const raw = (args.text || "").trim();
+                if (!/^\d{4}$/.test(raw)) { sap.m.MessageToast.show("연도는 YYYY(4자리)로 입력하세요."); return null; }
+                const y = parseInt(raw, 10);
+                if (y < 1900 || y > 2100) { sap.m.MessageToast.show("연도 범위: 1900~2100"); return null; }
+                mi.destroyTokens(); // 단일 값 정책
+                return new sap.m.Token({ key: String(y), text: String(y) });
+            });
+        },
 
+        _checkRequiredFields: function (sPriorYear, sCurrYear, sPriorStart, sPriorEnd, sCurrStart, sCurrEnd) {
+            if (!sPriorYear || !sCurrYear || !sPriorStart || !sPriorEnd || !sCurrStart || !sCurrEnd) {
+                MessageBox.error(
+                    "기준 기간과 비교 기간의 시작 월, 종료 월, 회계연도를 모두 입력하세요.",
+                    {
+                        title: "입력 오류",
+                        styleClass: "sapUiSizeCompact"
+                    }
+                );
+                return false; // 체크 실패
+            }
+            return true; // 체크 성공
+        },
 
+        _setSingleToken: function (sId, sVal) {
+            const mi = this.byId(sId);
+            if (!mi) return;
+            mi.destroyTokens();
+            mi.addToken(new sap.m.Token({ key: sVal, text: sVal }));
+        },
 
+        _getTokenVal: function (sId) {
+            const mi = this.byId(sId);
+            const t = mi ? mi.getTokens() : [];
+            return t.length ? t[0].getKey() : "";
+        },
+
+        // 월 범위 → ["006","007",...]
+        _expandPeriods: function (sStart, sEnd) {
+            const toNum = (v) => Math.max(0, Math.min(16, parseInt(v || "0", 10)));
+            let a = toNum(sStart), b = toNum(sEnd);
+            if (a === 0 && b === 0) return [];     // 둘 다 000이면 비워둠
+            if (a === 0) a = 1;                    // 000은 '미지정' → 001로 보정
+            if (b === 0) b = 16;                   // 000은 '미지정' → 016로 보정
+            if (a > b) [a, b] = [b, a];
+            const out = [];
+            for (let i = a; i <= b; i++) out.push(String(i).padStart(3, "0"));
+            return out;
+        },
+
+        _getToken: function (id) {
+            const mi = this.byId(id);
+            const t = mi ? mi.getTokens() : [];
+            return t.length ? t[0].getKey() : "";
+        },
+
+        // 모든 expand/collapse/추가 로딩이 끝나고 행 수가 안정될 때까지 Busy 유지
+        _busyUntilFullyExpanded: function (oTable, opts) {
+            if (!oTable) return;
+            const oBinding = oTable.getBinding("rows");
+            if (!oBinding) { oTable.setBusy(false); return; }
+
+            const cfg = Object.assign({ idleMs: 200, stableRepeats: 2, timeoutMs: 15000 }, opts || {});
+            let lastLen = -1;
+            let stable = 0;
+            let timedOut = false;
+
+            oTable.setBusy(true);
+
+            const finish = () => {
+                if (timedOut) return; // 이미 타임아웃으로 종료된 경우
+                oTable.detachRowsUpdated(onRowsUpdated);
+                oTable.setBusy(false);
+                clearTimeout(timeoutId);
+            };
+
+            const onRowsUpdated = () => {
+                // 디바운스: idleMs 후 검사
+                clearTimeout(checkId);
+                checkId = setTimeout(() => {
+                    const pending = (typeof oBinding.isRequestPending === "function") && oBinding.isRequestPending();
+                    const len = oBinding.getLength();
+
+                    if (!pending && len === lastLen) {
+                        stable += 1;
+                    } else {
+                        stable = 0;
+                        lastLen = len;
+                    }
+
+                    if (stable >= cfg.stableRepeats) {
+                        finish();
+                    }
+                }, cfg.idleMs);
+            };
+
+            // 안전장치: 비정상 상황에서 최대 timeoutMs 뒤 Busy 해제
+            const timeoutId = setTimeout(() => {
+                timedOut = true;
+                oTable.detachRowsUpdated(onRowsUpdated);
+                oTable.setBusy(false);
+            }, cfg.timeoutMs);
+
+            let checkId = null;
+            oTable.attachRowsUpdated(onRowsUpdated);
+
+            // 즉시 한 번 트리거
+            onRowsUpdated();
+        },
     });
 });

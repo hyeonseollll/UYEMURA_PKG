@@ -18,61 +18,44 @@
                                     <Input id="IP_CompanyCode" value="{Search>/CompanyCode}" required="true" />
                                 </fb:control>
                             </fb:FilterGroupItem>
-                            <!-- 전기: 시작 ~ 종료 월 -->
-                            <fb:FilterGroupItem name="PriorPeriod" label="{i18n>PriorPeriod}" groupName="MainSearch" visibleInFilterBar="true">
+                            <!-- 시작 기간 -->
+                            <fb:FilterGroupItem name="PriorStartMonth" label="{i18n>PriorStartMonth}" groupName="MainSearch" visibleInFilterBar="true" mandatory="true">
                                 <fb:control>
-                                    <DateRangeSelection value="{
-                    parts: [
-                        {
-                            path: 'DateRange>/priorStart',
-                            type: 'sap.ui.model.type.Date',
-                            formatOptions: {
-                                source: { pattern: 'yyyy-MM-dd' }
-                            }
-                        },
-                        {
-                            path: 'DateRange>/priorEnd',
-                            type: 'sap.ui.model.type.Date',
-                            formatOptions: {
-                                source: { pattern: 'yyyy-MM-dd' }
-                            }
-                        }
-                    ],
-                    type: 'sap.ui.model.type.DateInterval',
-                    formatOptions: {
-                        pattern: 'yyyy-MM'
-                    }
-                }" displayFormat="yyyy-MM" valueFormat="yyyy-MM-dd" change="onMonthRangeChange" />
+                                    <MultiInput id="MI_PriorStartMonth" width="8rem" showValueHelp="false" />
                                 </fb:control>
                             </fb:FilterGroupItem>
 
-                            <!-- 당기: 시작 ~ 종료 월 -->
-                            <fb:FilterGroupItem name="CurrentPeriod" label="{i18n>CurrentPeriod}" groupName="MainSearch" visibleInFilterBar="true">
+                            <fb:FilterGroupItem name="PriorEndMonth" label="{i18n>PriorEndMonth}" groupName="MainSearch" visibleInFilterBar="true" mandatory="true">
                                 <fb:control>
-                                    <DateRangeSelection value="{
-                    parts: [
-                        {
-                            path: 'DateRange>/currentStart',
-                            type: 'sap.ui.model.type.Date',
-                            formatOptions: {
-                                source: { pattern: 'yyyy-MM-dd' }
-                            }
-                        },
-                        {
-                            path: 'DateRange>/currentEnd',
-                            type: 'sap.ui.model.type.Date',
-                            formatOptions: {
-                                source: { pattern: 'yyyy-MM-dd' }
-                            }
-                        }
-                    ],
-                    type: 'sap.ui.model.type.DateInterval',
-                    formatOptions: {
-                        pattern: 'yyyy-MM'
-                    }
-                }" displayFormat="yyyy-MM" valueFormat="yyyy-MM-dd" change="onMonthRangeChange" />
+                                    <MultiInput id="MI_PriorEndMonth"  width="8rem" showValueHelp="false"/>
                                 </fb:control>
                             </fb:FilterGroupItem>
+
+                            <fb:FilterGroupItem name="PriorFiscalYear" label="{i18n>PriorFiscalYear}" groupName="MainSearch" visibleInFilterBar="true" mandatory="true">
+                                <fb:control>
+                                    <MultiInput id="MI_PriorYear"  width="10rem" showValueHelp="false"/>
+                                </fb:control>
+                            </fb:FilterGroupItem>
+
+                            <!-- 비교 기간 -->
+                            <fb:FilterGroupItem name="CurrentStartMonth" label="{i18n>CurrentStartMonth}" groupName="MainSearch" visibleInFilterBar="true" mandatory="true">
+                                <fb:control>
+                                    <MultiInput id="MI_CurrentStartMonth"  width="8rem" showValueHelp="false"/>
+                                </fb:control>
+                            </fb:FilterGroupItem>
+
+                            <fb:FilterGroupItem name="CurrentEndMonth" label="{i18n>CurrentEndMonth}" groupName="MainSearch" visibleInFilterBar="true" mandatory="true">
+                                <fb:control>
+                                    <MultiInput id="MI_CurrentEndMonth"  width="8rem" showValueHelp="false"/>
+                                </fb:control>
+                            </fb:FilterGroupItem>
+
+                            <fb:FilterGroupItem name="CurrentFiscalYear" label="{i18n>CurrentFiscalYear}" groupName="MainSearch" visibleInFilterBar="true" mandatory="true">
+                                <fb:control>
+                                    <MultiInput id="MI_CurrentYear" width="10rem" showValueHelp="false"/>
+                                </fb:control>
+                            </fb:FilterGroupItem>
+
                             <fb:FilterGroupItem groupName="FB_GROUP" name="GLAccount" label="{i18n>GLAccount}" labelTooltip="{i18n>GLAccount}" visibleInFilterBar="true">
                                 <fb:control>
                                     <MultiInput id="MI_GL" width="60%" liveChange=".onLiveChange" valueHelpRequest=".onVHGL" suggestionRows="{
@@ -181,8 +164,6 @@
         }" />
                         </table:template>
                     </table:Column>
-
-
                     <!-- 단위 -->
                     <table:Column hAlign="Left" width="10%">
                         <Label design="Bold" text="{i18n>CompanyCodeCurrency}" />
