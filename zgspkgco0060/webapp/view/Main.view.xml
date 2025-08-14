@@ -27,26 +27,26 @@
 
                             <fb:FilterGroupItem name="PriorEndMonth" label="{i18n>PriorEndMonth}" groupName="MainSearch" visibleInFilterBar="true" mandatory="true">
                                 <fb:control>
-                                    <MultiInput id="MI_PriorEndMonth"  width="8rem" showValueHelp="false"/>
+                                    <MultiInput id="MI_PriorEndMonth" width="8rem" showValueHelp="false"/>
                                 </fb:control>
                             </fb:FilterGroupItem>
 
                             <fb:FilterGroupItem name="PriorFiscalYear" label="{i18n>PriorFiscalYear}" groupName="MainSearch" visibleInFilterBar="true" mandatory="true">
                                 <fb:control>
-                                    <MultiInput id="MI_PriorYear"  width="10rem" showValueHelp="false"/>
+                                    <MultiInput id="MI_PriorYear" width="10rem" showValueHelp="false"/>
                                 </fb:control>
                             </fb:FilterGroupItem>
 
                             <!-- 비교 기간 -->
                             <fb:FilterGroupItem name="CurrentStartMonth" label="{i18n>CurrentStartMonth}" groupName="MainSearch" visibleInFilterBar="true" mandatory="true">
                                 <fb:control>
-                                    <MultiInput id="MI_CurrentStartMonth"  width="8rem" showValueHelp="false"/>
+                                    <MultiInput id="MI_CurrentStartMonth" width="8rem" showValueHelp="false"/>
                                 </fb:control>
                             </fb:FilterGroupItem>
 
                             <fb:FilterGroupItem name="CurrentEndMonth" label="{i18n>CurrentEndMonth}" groupName="MainSearch" visibleInFilterBar="true" mandatory="true">
                                 <fb:control>
-                                    <MultiInput id="MI_CurrentEndMonth"  width="8rem" showValueHelp="false"/>
+                                    <MultiInput id="MI_CurrentEndMonth" width="8rem" showValueHelp="false"/>
                                 </fb:control>
                             </fb:FilterGroupItem>
 
@@ -80,6 +80,10 @@
                 <table:extension>
                     <Bar>
                         <contentRight>
+                            <SearchField id="SF_TableSearch" width="15rem" search="onTableSearch"/>
+                            <!-- 엔터/돋보기 클릭도 동일 동작 -->
+                            <Button icon="sap-icon://expand-group" press="onExpandAllPress"/>
+                            <Button icon="sap-icon://collapse-group" press="onCollapseAllPress"/>
                             <Button id="B_Excel" busyIndicatorDelay="0" icon="sap-icon://excel-attachment" press="onExport" />
                         </contentRight>
                     </Bar>
@@ -102,28 +106,22 @@
                     </table:Column>
 
                     <!-- 기간 잔액 -->
-                    <!-- <table:Column hAlign="End">
-                        <Label design="Bold" text="{i18n>PeriodBalance}" />
-                        <table:template>
-                            <Link text="{
-                parts: ['PeriodBalance', 'CompanyCodeCurrency'],
-                type: 'sap.ui.model.type.Currency',
-                formatOptions: { showMeasure: false }
-            }" press=".onPeriodBalancePress" />
-                        </table:template>
-                    </table:Column> -->
                     <table:Column hAlign="End">
                         <Label design="Bold" text="{i18n>PeriodBalance}" />
                         <table:template>
                             <HBox justifyContent="End" width="100%">
                                 <Link text="{
                     parts: ['PeriodBalance', 'CompanyCodeCurrency'],
+
                     type: 'sap.ui.model.type.Currency',
+                    formatter: '.formatter.hideZeroCurrency',
                     formatOptions: { showMeasure: false }
                 }" press=".onPeriodBalancePress" visible="{= !!${GlAccount}}" />
                                 <Text text="{
                     parts: ['PeriodBalance', 'CompanyCodeCurrency'],
+
                     type: 'sap.ui.model.type.Currency',
+                    formatter: '.formatter.hideZeroCurrency',
                     formatOptions: { showMeasure: false }
                 }" visible="{= !${GlAccount}}" />
                             </HBox>
@@ -136,6 +134,7 @@
                             <Text textAlign="End" text="{
                    parts: ['ComparisonBalance', 'CompanyCodeCurrency'],
                     type: 'sap.ui.model.type.Currency',
+                    formatter: '.formatter.hideZeroCurrency',
                     formatOptions: {showMeasure: false }
                 }" />
                         </table:template>
@@ -146,9 +145,14 @@
                         <Label design="Bold" text="{i18n>AbsoluteDifference}" />
                         <table:template>
                             <Text textAlign="End" text="{
-                           parts: ['AbsoluteDifference', 'CompanyCodeCurrency'],
-                    type: 'sap.ui.model.type.Currency',
-                    formatOptions: {showMeasure: false }
+                       
+  parts: [
+    { path: 'AbsoluteDifference' },
+    { path: 'NodeText' }
+  ],
+  formatter: '.formatter.hideAbsDiffIfBsPl'
+
+
                 }" />
                         </table:template>
                     </table:Column>
@@ -159,8 +163,7 @@
                         <table:template>
                             <Text textAlign="End" text="{
             path: 'RelativeDifference',
-     formatter: '.formatter.multiplyByHundredth'
-            
+            formatter: '.formatter.hideZeroNumber4'
         }" />
                         </table:template>
                     </table:Column>

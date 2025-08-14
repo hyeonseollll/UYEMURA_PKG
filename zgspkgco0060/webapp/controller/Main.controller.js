@@ -134,8 +134,11 @@ sap.ui.define([
 
 
         onAfterRendering: function () {
-            let oTable = this.byId(Control.Table.T_Main);
 
+            let oTable = this.byId(Control.Table.T_Main);
+            // 🔹 자동 → 고정 모드
+            oTable.setVisibleRowCountMode(sap.ui.table.VisibleRowCountMode.Fixed);
+            oTable.setVisibleRowCount(25); // 원하는 값으로(15~25 권장)
             if (oTable && typeof oTable.attachCollapse === "function") {
                 oTable.attachCollapse(this.onCollapse.bind(this));
                 oTable.attachExpand(this.onExpand.bind(this));
@@ -210,7 +213,35 @@ sap.ui.define([
                 }.bind(this)
             })
         },
+        onExpandAllPress: function () {
+            const oTable = this.byId("T_Main");
+            if (!oTable) return;
+            oTable.setBusy(true);
+            try { oTable.expandToLevel(20); } catch (e) { }
+            this._collapsedNodes = new Set();
+            this._bInitialExpandDone = true;
+            this._busyUntilFullyExpanded(oTable, { idleMs: 250, stableRepeats: 2, timeoutMs: 15000 });
+        },
 
+        onCollapseAllPress: function () {
+            const oTable = this.byId("T_Main");
+            if (!oTable) return;
+            oTable.setBusy(true);
+            const oBinding = oTable.getBinding("rows");
+            if (!oBinding) { oTable.setBusy(false); return; }
+            const len = oBinding.getLength();
+            this._collapsedNodes = this._collapsedNodes || new Set();
+            for (let i = 0; i < len; i++) {
+                try {
+                    const ctx = oBinding.getContextByIndex(i);
+                    if (!ctx) continue;
+                    oTable.collapse(i);
+                    const obj = ctx.getObject();
+                    if (obj && (obj.NodeID || obj.Node)) this._collapsedNodes.add(obj.NodeID || obj.Node);
+                } catch (e) { }
+            }
+            this._busyUntilFullyExpanded(oTable, { idleMs: 250, stableRepeats: 2, timeoutMs: 15000 });
+        },
         //VH GLAccount
         onVHGL() {
             if (this._oVHD && this._oVHD.isOpen && this._oVHD.isOpen()) {
@@ -384,6 +415,27 @@ sap.ui.define([
             sheet.openBy(oEvent.getSource());
         },
 
+
+        onTableSearch: function (oEvent) {
+            const sQuery = (oEvent.getParameter("newValue") ?? oEvent.getParameter("query") ?? "").trim();
+            this._lastTableQuery = sQuery;
+
+            const oTable = this.byId("T_Main");
+            const oBinding = oTable && oTable.getBinding("rows");
+
+            if (!oBinding) {
+                // 아직 bindRows 진행 중인 케이스 → dataReceived에서 반영
+                this._deferApplyTableFilters = true;
+                return;
+            }
+
+            this._applyTableFilters(); // 기본필터 + 검색필터 적용
+
+            if (sQuery) {
+                setTimeout(() => { try { oTable.expandToLevel(20); } catch (e) { } }, 120);
+            }
+        },
+
         /******************************************************************
          * Private Function
          ******************************************************************/
@@ -403,13 +455,16 @@ sap.ui.define([
             });
         },
         _bindTable: function (oTable) {
-            console.log(oTable);
+            const aBase = this._getTableFilter();
+            const aSearch = this._buildSearchFilters(this._lastTableQuery);
             oTable.bindRows({
                 path: "/FinancialStatements",
-                filters: this._getTableFilter(),
+                filters: aBase.concat(aSearch),
+                // filters: this._getTableFilter(),
                 parameters: {
                     countMode: "Inline",
                     operationMode: "Server",
+                    threshold: 25,
                     treeAnnotationProperties: {
                         hierarchyLevelFor: "HierarchyLevel",
                         hierarchyNodeFor: "Node",
@@ -432,34 +487,56 @@ sap.ui.define([
             oTable.setBusy(true);
         },
 
+        // _onTreeTableReceived: function () {
+        //     const oTable = this.byId(Control.Table.T_Main);
+        //     const oBinding = oTable.getBinding("rows");
+
+        //     // 데이터 도착 시점부터 Busy 유지
+        //     oTable.setBusy(true);
+
+        //     if (!this._bInitialExpandDone) {
+        //         try { oTable.expandToLevel(5); } catch (e) { console.warn("expandToLevel failed:", e); }
+        //         this._bInitialExpandDone = true;
+        //         this._collapsedNodes = new Set();
+        //     } else if (this._collapsedNodes && this._collapsedNodes.size && oBinding) {
+        //         const aContexts = oBinding.getContexts(0, oBinding.getLength());
+        //         aContexts.forEach((ctx, idx) => {
+        //             const id = ctx.getObject().Node;
+        //             if (this._collapsedNodes.has(id)) {
+        //                 try { oTable.collapse(idx); } catch (e) { console.warn("collapse failed:", e); }
+        //             }
+        //         });
+        //     }
+
+        //     // 노드가 모두 펼쳐지고 네트워크 요청이 끝나며 행 수가 '연속'으로 안정될 때 Busy OFF
+        //     this._busyUntilFullyExpanded(oTable, {
+        //         idleMs: 250,        // rowsUpdated 후 안정 대기 시간
+        //         stableRepeats: 2,   // 연속 2회 동일하면 안정으로 간주
+        //         timeoutMs: 15000    // 안전 타임아웃
+        //     });
+        // },
         _onTreeTableReceived: function () {
             const oTable = this.byId(Control.Table.T_Main);
             const oBinding = oTable.getBinding("rows");
-
-            // 데이터 도착 시점부터 Busy 유지
             oTable.setBusy(true);
 
             if (!this._bInitialExpandDone) {
-                try { oTable.expandToLevel(5); } catch (e) { console.warn("expandToLevel failed:", e); }
+                try { oTable.expandToLevel(5); } catch (e) { }
                 this._bInitialExpandDone = true;
                 this._collapsedNodes = new Set();
-            } else if (this._collapsedNodes && this._collapsedNodes.size && oBinding) {
-                const aContexts = oBinding.getContexts(0, oBinding.getLength());
-                aContexts.forEach((ctx, idx) => {
-                    const id = ctx.getObject().Node;
-                    if (this._collapsedNodes.has(id)) {
-                        try { oTable.collapse(idx); } catch (e) { console.warn("collapse failed:", e); }
-                    }
-                });
+            }
+            // 바인딩 전에 들어온 검색을 지금 적용
+            if (this._deferApplyTableFilters) {
+                this._deferApplyTableFilters = false;
+                this._applyTableFilters();
+                if (this._lastTableQuery) {
+                    setTimeout(() => { try { oTable.expandToLevel(20); } catch (e) { } }, 120);
+                }
             }
 
-            // 노드가 모두 펼쳐지고 네트워크 요청이 끝나며 행 수가 '연속'으로 안정될 때 Busy OFF
-            this._busyUntilFullyExpanded(oTable, {
-                idleMs: 250,        // rowsUpdated 후 안정 대기 시간
-                stableRepeats: 2,   // 연속 2회 동일하면 안정으로 간주
-                timeoutMs: 15000    // 안전 타임아웃
-            });
+            this._busyUntilFullyExpanded(oTable, { idleMs: 250, stableRepeats: 2, timeoutMs: 15000 });
         },
+
 
         _onCBCompanyRequested: function () {
             let oComboBox = this.getView().byId(Control.ComboBox.CB_CompanyCode);
@@ -753,7 +830,7 @@ sap.ui.define([
             const oBinding = oTable.getBinding("rows");
             if (!oBinding) { oTable.setBusy(false); return; }
 
-            const cfg = Object.assign({ idleMs: 200, stableRepeats: 2, timeoutMs: 15000 }, opts || {});
+            const cfg = Object.assign({ idleMs: 200, stableRepeats: 2, timeoutMs: 500 }, opts || {});
             let lastLen = -1;
             let stable = 0;
             let timedOut = false;
@@ -799,6 +876,38 @@ sap.ui.define([
 
             // 즉시 한 번 트리거
             onRowsUpdated();
+        },
+        // 마지막 검색어 저장용(초기값)
+        _lastTableQuery: "",
+        _deferApplyTableFilters: false,
+
+        // 검색어 OR 필터 생성 (NodeText, GlAccount, GlAccountText)
+        _buildSearchFilters: function (sQuery) {
+            const q = (sQuery || "").trim();
+            if (!q) return [];
+            return [
+                new sap.ui.model.Filter({
+                    and: false,
+                    filters: [
+                        new sap.ui.model.Filter("NodeText", sap.ui.model.FilterOperator.Contains, q),
+                        new sap.ui.model.Filter("GlAccount", sap.ui.model.FilterOperator.Contains, q),
+                        new sap.ui.model.Filter("GlAccountText", sap.ui.model.FilterOperator.Contains, q)
+                    ]
+                })
+            ];
+        },
+
+        // 현재 바인딩에 (기간/회사코드 등) 기본필터 + 검색필터 적용
+        _applyTableFilters: function () {
+            const oTable = this.byId(Control.Table.T_Main);
+            const oBinding = oTable && oTable.getBinding("rows");
+            if (!oBinding) return;
+
+            const aBase = this._getTableFilter();
+            const aSearch = this._buildSearchFilters(this._lastTableQuery);
+
+            // Application 필터 그룹으로 적용 (서버 모드와 공존)
+            oBinding.filter(aBase.concat(aSearch), sap.ui.model.FilterType.Application);
         },
     });
 });

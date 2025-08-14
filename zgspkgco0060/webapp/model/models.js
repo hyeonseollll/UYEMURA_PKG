@@ -56,8 +56,6 @@ sap.ui.define([
                     });
                 });
             },
-
-            // 🚩 이 부분을 추가합니다.
             getPeriodBalanceControl: function (sGlAccount, sPeriodBalance, sCurrency) {
                 const oCurrencyType = new Currency({
                     showMeasure: false,

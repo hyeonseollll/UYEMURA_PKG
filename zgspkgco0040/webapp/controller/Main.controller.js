@@ -33,7 +33,7 @@ sap.ui.define([
         onInit: function () {
             // i18n Init
             this.i18n = this.getOwnerComponent().getModel("i18n").getResourceBundle();
-            
+
 
             //---------------------------------------------------------------/
             // Change Filterbar's Go Text
@@ -75,6 +75,28 @@ sap.ui.define([
 
         },
 
+        onAfterRendering: function () {
+            const oTable = this.byId(Control.Table.T_Main);
+            if (!oTable) return;
+            if (typeof oTable.attachCollapse === "function") {
+                oTable.attachCollapse((e) => {
+                    const ctx = e.getParameter("rowContext");
+                    if (!ctx) return;
+                    const id = ctx.getProperty("NodeID");
+                    this._collapsedNodes = this._collapsedNodes || new Set();
+                    this._collapsedNodes.add(id);
+                });
+                oTable.attachExpand((e) => {
+                    const ctx = e.getParameter("rowContext");
+                    if (!ctx) return;
+                    const id = ctx.getProperty("NodeID");
+                    this._collapsedNodes = this._collapsedNodes || new Set();
+                    this._collapsedNodes.delete(id);
+                });
+            }
+        },
+
+
         onExport: function () {
             let oBExcel = this.getView().byId(Control.Button.B_Excel);
             oBExcel.setBusy(true);
@@ -114,6 +136,36 @@ sap.ui.define([
             })
         },
 
+        onExpand: function () {
+            const oTable = this.byId("T_Main");
+            if (!oTable) return;
+            oTable.setBusy(true);
+            try { oTable.expandToLevel(20); } catch (e) { }
+            this._collapsedNodes = new Set();
+            this._bInitialExpandDone = true;
+            this._busyUntilFullyExpanded(oTable, { idleMs: 250, stableRepeats: 2, timeoutMs: 15000 });
+        },
+
+        onCollapse: function () {
+            const oTable = this.byId("T_Main");
+            if (!oTable) return;
+            oTable.setBusy(true);
+            const oBinding = oTable.getBinding("rows");
+            if (!oBinding) { oTable.setBusy(false); return; }
+            const len = oBinding.getLength();
+            this._collapsedNodes = this._collapsedNodes || new Set();
+            for (let i = 0; i < len; i++) {
+                try {
+                    const ctx = oBinding.getContextByIndex(i);
+                    if (!ctx) continue;
+                    oTable.collapse(i);
+                    const obj = ctx.getObject();
+                    if (obj && (obj.NodeID || obj.Node)) this._collapsedNodes.add(obj.NodeID || obj.Node);
+                } catch (e) { }
+            }
+            this._busyUntilFullyExpanded(oTable, { idleMs: 250, stableRepeats: 2, timeoutMs: 15000 });
+        },
+
 
         /******************************************************************
          * Private Function
@@ -146,27 +198,55 @@ sap.ui.define([
             oTable.setBusy(true);
         },
 
+        // _onTreeTableReceived: function () {
+        //     let oTable = this.getView().byId(Control.Table.T_Main);
+        //     // oTable.expandToLevel(5);
+        //     var aIndices = oTable.getBinding("rows").getContexts(0, oTable.getBinding("rows").getLength());
+
+        //     aIndices.forEach(function (oContext, iIndex) {
+        //         var oRowData = oContext.getObject();
+
+        //         if (oRowData.DrillState === "expanded") {
+        //             // 중요: index는 바뀔 수 있어서 안전하게 context 기반으로 처리해야 하나,
+        //             // 간단하게는 index로 처리 가능
+        //             try {
+        //                 oTable.expand(iIndex);
+        //             } catch (e) {
+        //                 console.warn("Expand failed at index", iIndex, e);
+        //             }
+        //         }
+        //     });
+
+        //     oTable.setBusy(false);
+        // },
         _onTreeTableReceived: function () {
-            let oTable = this.getView().byId(Control.Table.T_Main);
-            // oTable.expandToLevel(5);
-            var aIndices = oTable.getBinding("rows").getContexts(0, oTable.getBinding("rows").getLength());
+            const oTable = this.getView().byId(Control.Table.T_Main);
+            const oBinding = oTable.getBinding("rows");
+            oTable.setBusy(true);
 
-            aIndices.forEach(function (oContext, iIndex) {
-                var oRowData = oContext.getObject();
-
-                if (oRowData.DrillState === "expanded") {
-                    // 중요: index는 바뀔 수 있어서 안전하게 context 기반으로 처리해야 하나,
-                    // 간단하게는 index로 처리 가능
-                    try {
-                        oTable.expand(iIndex);
-                    } catch (e) {
-                        console.warn("Expand failed at index", iIndex, e);
-                    }
+            // 1) 서버가 준 DrillState 기준 초기 확장
+            const ctxs = oBinding.getContexts(0, oBinding.getLength());
+            ctxs.forEach((ctx, idx) => {
+                const row = ctx.getObject();
+                if (row && row.DrillState === "expanded") {
+                    try { oTable.expand(idx); } catch (e) { }
                 }
             });
 
-            oTable.setBusy(false);
+            // 2) 사용자가 이전에 접었던 노드 강제 접기 (있을 때만)
+            if (this._collapsedNodes && this._collapsedNodes.size) {
+                ctxs.forEach((ctx, idx) => {
+                    const row = ctx.getObject();
+                    if (row && row.NodeID && this._collapsedNodes.has(row.NodeID)) {
+                        try { oTable.collapse(idx); } catch (e) { }
+                    }
+                });
+            }
+
+            // 3) 안정화될 때까지 Busy 유지
+            this._busyUntilFullyExpanded(oTable, { idleMs: 250, stableRepeats: 2, timeoutMs: 15000 });
         },
+
 
         _onCBCompanyRequested: function () {
             let oComboBox = this.getView().byId(Control.ComboBox.CB_CompanyCode);
@@ -276,7 +356,50 @@ sap.ui.define([
                 ofilters["$top"] = icount;
             }
             return ofilters;
-        }
+        },
+
+        _busyUntilFullyExpanded: function (oTable, opts) {
+            if (!oTable) return;
+            const oBinding = oTable.getBinding("rows");
+            if (!oBinding) { oTable.setBusy(false); return; }
+
+            const cfg = Object.assign({ idleMs: 200, stableRepeats: 2, timeoutMs: 15000 }, opts || {});
+            let lastLen = -1, stable = 0, timedOut = false, checkId = null;
+
+            oTable.setBusy(true);
+
+            const finish = () => {
+                if (timedOut) return;
+                oTable.detachRowsUpdated(onRowsUpdated);
+                oTable.setBusy(false);
+                clearTimeout(timeoutId);
+            };
+
+            const onRowsUpdated = () => {
+                clearTimeout(checkId);
+                checkId = setTimeout(() => {
+                    const pending = (typeof oBinding.isRequestPending === "function") && oBinding.isRequestPending();
+                    const len = oBinding.getLength();
+                    if (!pending && len === lastLen) {
+                        stable += 1;
+                    } else {
+                        stable = 0;
+                        lastLen = len;
+                    }
+                    if (stable >= cfg.stableRepeats) finish();
+                }, cfg.idleMs);
+            };
+
+            const timeoutId = setTimeout(() => {
+                timedOut = true;
+                oTable.detachRowsUpdated(onRowsUpdated);
+                oTable.setBusy(false);
+            }, cfg.timeoutMs);
+
+            oTable.attachRowsUpdated(onRowsUpdated);
+            onRowsUpdated();
+        },
+
 
     });
 });
