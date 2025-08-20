@@ -27,9 +27,12 @@ sap.ui.define([
             }
         },
         onUploadSet: function (oEvent) {
+            const oBundle = this.getView().getModel("i18n").getResourceBundle();
+
             // checking if excel file contains data or not
             if (!this.excelSheetsData.length) {
-                MessageToast.show("업로드할 파일을 선택해주세요.");
+                // MessageToast.show("업로드할 파일을 선택해주세요.");
+                MessageToast.show(oBundle.getText("excel.noFileSelected"));
                 return;
             }
 
@@ -53,6 +56,7 @@ sap.ui.define([
 
         },
         onTempDownload: function (oEvent) {
+             const oBundle = this.getView().getModel("i18n").getResourceBundle();
 
             var oModel = this.getView().getModel();
 
@@ -79,7 +83,8 @@ sap.ui.define([
             // download the created excel file
             XLSX.writeFile(wb, '원가계산 유형 기준정보.xlsx');
 
-            MessageToast.show("다운로드 중입니다...");
+            // MessageToast.show("다운로드 중입니다...");
+             MessageToast.show(oBundle.getText("excel.downloading"));
         },
         onCloseDialog: function (oEvent) {
             this.pDialog.close();
@@ -89,6 +94,7 @@ sap.ui.define([
             /* TODO: check for file upload count */
         },
         onUploadSetComplete: function (oEvent) {
+            const oBundle = this.getView().getModel("i18n").getResourceBundle();
             var oFileUploader = Fragment.byId("excel_upload", "uploadSet");
 
             var oFile = oEvent.getParameter("item").getFileObject();
@@ -111,12 +117,14 @@ sap.ui.define([
             };
             reader.readAsBinaryString(oFile);
 
-            MessageToast.show("업로드 되었습니다.");
+            // MessageToast.show("업로드 되었습니다.");
+            MessageToast.show(oBundle.getText("excel.uploaded"));
         },
         onItemRemoved: function (oEvent) {
             this.excelSheetsData = [];
         },
         callOdata: function (fnResolve, fnReject) {
+            const oBundle = this.getView().getModel("i18n").getResourceBundle();
 
             //  intializing the message manager for displaying the odata response messages
             var oModel = this.getView().getModel();
@@ -136,7 +144,8 @@ sap.ui.define([
                         console.log(result);
                         var oMessageManager = sap.ui.getCore().getMessageManager();
                         var oMessage = new sap.ui.core.message.Message({
-                            message: "평가클래스" + result.Materialclass + "가 생성되었습니다.",
+                            // message: "평가클래스" + result.Materialclass + "가 생성되었습니다.",
+                             message: oBundle.getText("odata.materialcat.create.success", [result.Materialclass]),
                             persistent: true, // create message as transition message
                             type: sap.ui.core.MessageType.Success
                         });

@@ -70,13 +70,15 @@ sap.ui.define([], function () {
             });
             return nf.format(n);
         },
-        // ▶ 0이면 "", 아니면 소수 0~4 자리로 표시 (나누기 없음)
         hideZeroNumber2: function (value) {
             const n = toNumberSafe(value);
             if (isNaN(n)) return "";
-            // 소수 4자리 기준으로 0 판정
-            if (Math.round(n * 10000) === 0.00) return "";
-            // if (PannerNode = 'BS') return "";
+
+            // 0일 때만 "0.00" 고정 출력
+            if (Math.abs(n) < EPS) {
+                return "0.00";
+            }
+
             const nf = sap.ui.core.format.NumberFormat.getFloatInstance({
                 groupingEnabled: true,
                 minFractionDigits: 2,
@@ -85,14 +87,15 @@ sap.ui.define([], function () {
             return nf.format(n);
         },
 
-     hideAbsDiffIfBsPl: function (absDiff, parentId) {
-    // 절대차이가 숫자 0이고, ParentNodeID가 BS/PL이면 빈칸
-    if (Number(absDiff) === 0 && (parentId === "BS" || parentId === "PL")) {
-        return "";
-    }
-    // 그 외에는 원래 값 유지 (필요 시 포맷 추가 가능)
-    return absDiff;
-}
+
+        hideAbsDiffIfBsPl: function (absDiff, parentId) {
+            // 절대차이가 숫자 0이고, ParentNodeID가 BS/PL이면 빈칸
+            if (Number(absDiff) === 0 && (parentId === "BS" || parentId === "PL")) {
+                return "";
+            }
+            // 그 외에는 원래 값 유지 (필요 시 포맷 추가 가능)
+            return absDiff;
+        }
 
 
 

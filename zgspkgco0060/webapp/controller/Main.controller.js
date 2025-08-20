@@ -87,6 +87,9 @@ sap.ui.define([
         // },
 
         onInit: function () {
+
+            this._isClientView = false;     // JSON 클라이언트 뷰 여부
+            this._origBindingInfo = null;   // OData 복구용
             // i18n
             this.i18n = this.getOwnerComponent().getModel("i18n").getResourceBundle();
 
@@ -154,7 +157,12 @@ sap.ui.define([
          * Event Listener
          ******************************************************************/
         onSearch: function () {
-            // 토큰값 읽기
+            // 상세검색(client) 모드였다면 먼저 복구
+            if (this._isClientView) {
+                this._restoreODataBinding();
+            }
+
+            // 토큰값 읽기  
             const sPriorYear = this._getTokenVal("MI_PriorYear");
             const sPriorStart = this._getTokenVal("MI_PriorStartMonth");
             const sPriorEnd = this._getTokenVal("MI_PriorEndMonth");
@@ -175,6 +183,47 @@ sap.ui.define([
             this._bInitialExpandDone = false;
             this._bindTable(oTable);
         },
+
+        // onExport: function () {
+        //     let oBExcel = this.getView().byId(Control.Button.B_Excel);
+        //     oBExcel.setBusy(true);
+
+        //     let oTreeTable = this.getView().byId(Control.Table.T_Main);
+        //     let oRowBinding = oTreeTable.getBinding('rows');
+
+        //     this.getView().getModel().read('/FinancialStatements/$count', {
+        //         urlParameters: this._makeURL(oRowBinding.sFilterParams),
+        //         success: function (oResult) {
+        //             this.count = oResult;
+        //             this.getView().getModel().read('/FinancialStatements', {
+        //                 urlParameters: this._makeURL(oRowBinding.sFilterParams, oResult),
+        //                 success: function (oResult) {
+        //                     this.data = oResult.results
+        //                     let aCols, oSettings, oSheet;
+        //                     aCols = this._createColumnConfig();
+
+        //                     oSettings = {
+        //                         workbook: {
+        //                             columns: aCols,
+        //                             hierarchyLevel: "HierarchyLevel"
+        //                         },
+        //                         dataSource: this.data,
+        //                         fileName: this.i18n.getText("title") + (new Date()).toISOString() + '.xlsx',
+        //                         worker: true
+        //                     };
+
+        //                     oSheet = new Spreadsheet(oSettings);
+        //                     oSheet.build().finally(function () {
+        //                         oSheet.destroy();
+        //                         oBExcel.setBusy(false);
+        //                     });
+        //                 }.bind(this)
+        //             })
+        //         }.bind(this)
+        //     })
+        // },
+
+
         onExport: function () {
             let oBExcel = this.getView().byId(Control.Button.B_Excel);
             oBExcel.setBusy(true);
@@ -182,37 +231,44 @@ sap.ui.define([
             let oTreeTable = this.getView().byId(Control.Table.T_Main);
             let oRowBinding = oTreeTable.getBinding('rows');
 
-            this.getView().getModel().read('/FinancialStatements/$count', {
-                urlParameters: this._makeURL(oRowBinding.sFilterParams),
-                success: function (oResult) {
-                    this.count = oResult;
-                    this.getView().getModel().read('/FinancialStatements', {
-                        urlParameters: this._makeURL(oRowBinding.sFilterParams, oResult),
-                        success: function (oResult) {
-                            this.data = oResult.results
-                            let aCols, oSettings, oSheet;
-                            aCols = this._createColumnConfig();
+            let aExportData = [];
+            let iRowCount = oRowBinding.getLength();
 
-                            oSettings = {
-                                workbook: {
-                                    columns: aCols,
-                                    hierarchyLevel: "HierarchyLevel"
-                                },
-                                dataSource: this.data,
-                                fileName: this.i18n.getText("title") + (new Date()).toISOString() + '.xlsx',
-                                worker: true
-                            };
+            // 🌳 TreeTable 내부의 _aNodes 배열을 사용합니다.
+            let aNodes = oRowBinding.getNodes(); // 또는 oTreeTable._aNodes;
 
-                            oSheet = new Spreadsheet(oSettings);
-                            oSheet.build().finally(function () {
-                                oSheet.destroy();
-                                oBExcel.setBusy(false);
-                            });
-                        }.bind(this)
-                    })
-                }.bind(this)
-            })
+            for (let i = 0; i < iRowCount; i++) {
+                let oContext = oRowBinding.getContextByIndex(i);
+                if (oContext) {
+                    let oRowData = oContext.getObject();
+
+                    // 💡 노드에서 직접 레벨을 가져옵니다.
+                    oRowData.HierarchyLevel = aNodes[i] ? aNodes[i].level : 0;
+
+                    aExportData.push(oRowData);
+                }
+            }
+
+            let aCols, oSettings, oSheet;
+            aCols = this._createColumnConfig();
+
+            oSettings = {
+                workbook: {
+                    columns: aCols,
+                    hierarchyLevel: 'HierarchyLevel'
+                },
+                dataSource: aExportData,
+                fileName: this.i18n.getText("title") + (new Date()).toISOString() + '.xlsx',
+                worker: true
+            };
+
+            oSheet = new Spreadsheet(oSettings);
+            oSheet.build().finally(function () {
+                oSheet.destroy();
+                oBExcel.setBusy(false);
+            });
         },
+        
         onExpandAllPress: function () {
             const oTable = this.byId("T_Main");
             if (!oTable) return;
@@ -242,6 +298,17 @@ sap.ui.define([
             }
             this._busyUntilFullyExpanded(oTable, { idleMs: 250, stableRepeats: 2, timeoutMs: 15000 });
         },
+
+        onTableSearch: function (oEventOrString) {
+            const sQuery =
+                (typeof oEventOrString === "string"
+                    ? oEventOrString
+                    : (oEventOrString.getParameter("query") || "")).trim();
+
+            if (!sQuery) { sap.m.MessageToast.show("검색어를 입력하세요."); return; }
+            this.jumpToQuery(sQuery, { focusCol: 0 });
+        },
+
         //VH GLAccount
         onVHGL() {
             if (this._oVHD && this._oVHD.isOpen && this._oVHD.isOpen()) {
@@ -341,7 +408,7 @@ sap.ui.define([
 
         onLiveChange: function (oEvent) {
             var vId = oEvent.getSource().getId();
-            var oMultiInput; ``
+            var oMultiInput;
 
             if (vId.endsWith("MI_MT")) {
                 oMultiInput = this.byId("MI_MT");
@@ -415,30 +482,466 @@ sap.ui.define([
             sheet.openBy(oEvent.getSource());
         },
 
+        onComparisonBalance: function (oEvent) {
+            const oCtx = oEvent.getSource().getBindingContext();
+            if (!oCtx) return;
 
-        onTableSearch: function (oEvent) {
-            const sQuery = (oEvent.getParameter("newValue") ?? oEvent.getParameter("query") ?? "").trim();
-            this._lastTableQuery = sQuery;
+            const { GlAccount: glAccount, CompanyCode: companyCode = "4310" } = oCtx.getObject() || {};
+            if (!glAccount) { sap.m.MessageToast.show(this.i18n.getText("noGLAccount")); return; }
 
+            // 현재 필터(당기) 값 그대로
+            const year = this._getTokenVal("MI_CurrentYear");          // "2025"
+            const fromM = this._getTokenVal("MI_CurrentStartMonth");    // "005"
+            const toM = this._getTokenVal("MI_CurrentEndMonth");      // "008"
+
+            // 월 리스트 (총계정원장용)
+            const expand = (a, b) => Array.from({ length: Math.abs(+b - +a) + 1 }, (_, i) => String(Math.min(+a, +b) + i).padStart(3, "0"));
+            const periods = expand(fromM, toM);
+
+            const sheet = new sap.m.ActionSheet({
+                showCancelButton: true,
+                buttons: [
+                    new sap.m.Button({
+                        text: "G/L 계정 잔액조회",
+                        press: () => this._navigateToGLBalance(glAccount, companyCode, fromM, toM, year)
+                    }),
+                    new sap.m.Button({
+                        text: "총계정원장에서 개별 항목 조회",
+                        press: () => this._navigateToJournalEntry(glAccount, companyCode, year, periods)
+                    })
+                ]
+            });
+            this.getView().addDependent(sheet);
+            sheet.openBy(oEvent.getSource());
+        },
+        /** 모두 접힌 상태라도, 얕게→넓게 펼치며 매칭을 찾으면 즉시 점프 */
+        jumpToQuery: async function (sQuery, options) {
             const oTable = this.byId("T_Main");
             const oBinding = oTable && oTable.getBinding("rows");
+            if (!oBinding) { sap.m.MessageToast.show("먼저 조회를 실행하세요."); return; }
 
-            if (!oBinding) {
-                // 아직 bindRows 진행 중인 케이스 → dataReceived에서 반영
-                this._deferApplyTableFilters = true;
-                return;
+            const opt = Object.assign({
+                maxRounds: 12,      // 확장 라운드 상한 (너무 많이 펴지 않도록)
+                perRoundBudget: 200, // 라운드당 펼칠 최대 노드 수
+                focusCol: 0
+            }, options);
+
+            const q = (sQuery || "").toLowerCase();
+
+            // 0) 루트가 다 닫혀있으면 최소 1레벨은 보이게
+            try { oTable.expandToLevel(5); } catch (e) { }
+            await this._waitRowsSettled(oTable, 120);
+
+            // 매 라운드: (찾기 → 못 찾으면 조금 펼치기 → 안정화 대기) 반복
+            for (let round = 0; round < opt.maxRounds; round++) {
+                // A) 현재 가시 영역에서 먼저 찾기
+                const len = oBinding.getLength();
+                const ctxs = oBinding.getContexts(0, len);
+                for (let i = 0; i < ctxs.length; i++) {
+                    const obj = ctxs[i] && ctxs[i].getObject && ctxs[i].getObject();
+                    if (!obj) continue;
+                    if (this._rowMatchesQuery(obj, q)) {
+                        this._scrollSelectFocusRow(i, opt.focusCol);
+                        return;
+                    }
+                }
+
+                // B) 못 찾았으면 가볍게 한 층 더 펼치기
+                const expanded = this._expandVisibleOnce(oTable, opt.perRoundBudget);
+
+                // 더 펼칠 게 없으면 종료
+                if (!expanded) break;
+
+                // C) 로딩 안정화 대기 후 다음 라운드
+                await this._waitRowsSettled(oTable, 180);
             }
 
-            this._applyTableFilters(); // 기본필터 + 검색필터 적용
-
-            if (sQuery) {
-                setTimeout(() => { try { oTable.expandToLevel(20); } catch (e) { } }, 120);
-            }
+            sap.m.MessageToast.show("일치 항목이 없습니다.");
         },
 
         /******************************************************************
          * Private Function
          ******************************************************************/
+        /** 서버에서 nodeId의 조상 경로를 만들어 반환 (루트→...→nodeId) */
+        _serverBuildPath: async function (nodeId) {
+            const path = [];
+            let cur = nodeId, guard = 0;
+            while (cur != null && guard++ < 200) {
+                path.push(cur);
+                const parent = await this._serverGetParent(cur); // 이미 구현되어 있음
+                if (parent == null) break; // 루트
+                cur = parent;
+            }
+            return path.reverse(); // 루트→...→node
+        },
+
+        _applyNodeCutFilter: async function (sQuery) {
+            const oTable = this.byId("T_Main");
+            if (!sQuery) {
+                if (this._isClientView) {
+                    this._restoreODataBinding();
+                    sap.m.MessageToast.show("검색 해제");
+                }
+                return;
+            }
+
+            // 최초 한 번: OData 바인딩 정보 저장 (복구용)
+            if (!this._origBindingInfo) {
+                const ob = oTable.getBinding("rows");
+                if (!ob) {
+                    sap.m.MessageToast.show("먼저 조회를 실행하세요.");
+                    return;
+                }
+                this._origBindingInfo = {
+                    path: "/FinancialStatements",
+                    parameters: {
+                        countMode: "Inline",
+                        operationMode: "Server",
+                        threshold: 25,
+                        treeAnnotationProperties: {
+                            hierarchyLevelFor: "HierarchyLevel",
+                            hierarchyNodeFor: "Node",
+                            hierarchyParentNodeFor: "ParentNodeID",
+                            hierarchyDrillStateFor: "DrillState"
+                        },
+                        rootLevel: 1
+                    }
+                };
+            }
+
+            let flat;
+
+            // 이미 클라이언트 뷰이고, 전체 스냅샷이 있으면 재사용 (빠름)
+            if (this._isClientView && Array.isArray(this._flatSnapshot) && this._flatSnapshot.length) {
+                flat = this._flatSnapshot;
+            } else {
+                // 전체 확장 유도 → 지연 로딩 모두 가져와 평면 리스트 스냅샷 생성
+                try { oTable.expandToLevel(99); } catch (e) { }
+                await this._expandAllDeep(oTable); // 지연 로딩 모두 트리거 (이미 구현되어 있음)
+                const obNow = oTable.getBinding("rows");
+                const len = obNow.getLength();
+                const ctxs = obNow.getContexts(0, len);
+                flat = ctxs.map(c => c && c.getObject()).filter(Boolean);
+                this._flatSnapshot = flat; // ⬅️ 이후 검색 재사용
+            }
+
+            // 평면 → 트리 구성 후 쿼리로 필터링 (매칭 노드와 조상/자손 경로 보존)
+            const tree = this._buildTreeFromFlat(flat);
+            const filtered = this._filterTreeByQuery(tree, sQuery);
+
+            // 클라이언트(JSON) 모델로 바인딩 전환
+            const oJson = new sap.ui.model.json.JSONModel({ nodes: filtered });
+            oTable.setModel(oJson, "client");
+            oTable.unbindRows();
+            oTable.bindRows({
+                path: "client>/nodes",
+                parameters: { arrayNames: ["children"] }
+            });
+            this._isClientView = true;
+
+            // 모두 펼친 뒤 안정화 대기
+            try { oTable.expandToLevel(99); } catch (e) { }
+            await this._waitRowsSettled(oTable, 180);
+
+            // 현재 화면 테이블 순서(전위 순회)로 평탄화
+            this._clientFlat = this._flattenTreeForTable(filtered);
+
+            // 히트 노드 목록 계산 (Node 또는 NodeID 기준)
+            const q = (sQuery || "").toLowerCase();
+            this._hitNodeIds = [];
+            for (let i = 0; i < this._clientFlat.length; i++) {
+                const n = this._clientFlat[i];
+                if (this._isHit(n, q)) {
+                    const id = (n.Node != null ? n.Node : n.NodeID);
+                    if (id != null) this._hitNodeIds.push(id);
+                }
+            }
+            this._hitPos = -1;
+
+            // ⬇️ 여기서는 점프/토스트를 하지 않습니다. (호출자 onTableSearch에서 처리)
+            return;
+        },
+
+        /** 평면 -> 트리 (키 명칭 혼용 안전) */
+        _buildTreeFromFlat: function (flat) {
+            const map = Object.create(null);
+
+            (flat || []).forEach(n => {
+                const id = n.Node != null ? n.Node : n.NodeID;
+                if (id == null) return;
+                map[id] = map[id] || { children: [] };
+                Object.assign(map[id], n, { children: map[id].children || [] });
+            });
+
+            const roots = [];
+            (flat || []).forEach(n => {
+                const id = n.Node != null ? n.Node : n.NodeID;
+                const pid = (n.ParentNodeID != null ? n.ParentNodeID : n.ParentNode);
+                if (pid != null && map[pid]) {
+                    map[pid].children.push(map[id]);
+                } else {
+                    roots.push(map[id]);
+                }
+            });
+
+            return roots;
+        },
+
+
+        /** 매칭 노드의 서브트리는 전부 보존 + 매칭 자손의 조상 경로 보존 */
+        _filterTreeByQuery: function (nodes, sQuery) {
+            const q = (sQuery || "").toLowerCase();
+            const V = v => String(v == null ? "" : v).toLowerCase();
+
+            const hit = (n) => {
+                const cands = [
+                    n.NodeText
+                ];
+                return cands.some(x => V(x).includes(q));
+            };
+
+            const deepCopy = (n) => {
+                const c = Object.assign({}, n);
+                c.children = (n.children || []).map(deepCopy);
+                return c;
+            };
+
+            const dfs = (n) => {
+                if (hit(n)) return deepCopy(n);               // 매칭 → 하위 전부 보존
+                const kept = (n.children || []).map(dfs).filter(Boolean);
+                if (kept.length) {                            // 자손 매칭 → 조상 경로 보존
+                    const c = Object.assign({}, n);
+                    c.children = kept;
+                    return c;
+                }
+                return null;
+            };
+
+            return (nodes || []).map(dfs).filter(Boolean);
+        },
+        _isHit: function (n, q) {
+            const V = v => String(v == null ? "" : v).toLowerCase();
+            const cands = [n.NodeText, n.GlAccount, n.GlAccountText]; //  확대
+            return cands.some(x => V(x).includes(q));
+        },
+
+        /** 트리 노드를 테이블 표시 순서(전위 순회)로 평탄화 */
+        _flattenTreeForTable: function (nodes) {
+            const out = [];
+            const visit = (n) => { out.push(n); (n.children || []).forEach(visit); };
+            (nodes || []).forEach(visit);
+            return out;
+        },
+
+        _collectHitsInCurrentView: function (sQuery) {
+            const q = (sQuery || "").toLowerCase();
+            const arr = this._clientFlat || [];
+            this._hitNodeIds = []; this._hitPos = -1;
+            for (let i = 0; i < arr.length; i++) {
+                const n = arr[i];
+                if (this._isHit(n, q)) {
+                    const id = n.Node != null ? n.Node : n.NodeID;
+                    if (id != null) this._hitNodeIds.push(id);
+                }
+            }
+        },
+        /** 현재 바인딩에서 Node 키로 행 인덱스를 찾는다 */
+        _indexOfNodeInBinding: function (nodeId) {
+            const oTable = this.byId("T_Main");
+            const ob = oTable && oTable.getBinding("rows");
+            if (!ob) return -1;
+            const len = ob.getLength();
+            const ctxs = ob.getContexts(0, len);
+            for (let i = 0; i < ctxs.length; i++) {
+                const o = ctxs[i] && ctxs[i].getObject && ctxs[i].getObject();
+                const id = o && (o.Node != null ? o.Node : o.NodeID);
+                if (id === nodeId) return i;
+            }
+            return -1;
+        },
+
+
+        _gotoNextHit: function () {
+            const oTable = this.byId("T_Main");
+            if (!oTable || !this._hitNodeIds || !this._hitNodeIds.length) {
+                sap.m.MessageToast.show("일치 항목이 없습니다."); return;
+            }
+            this._hitPos = (this._hitPos + 1) % this._hitNodeIds.length;
+
+            // 현재 바인딩에서 해당 Node 의 인덱스를 다시 계산
+            const nodeId = this._hitNodeIds[this._hitPos];
+            const idx = this._indexOfNodeInBinding(nodeId);
+
+            if (idx >= 0) {
+                oTable.setFirstVisibleRow(Math.max(0, idx - 2));
+                oTable.setSelectedIndex(idx);
+                sap.m.MessageToast.show((this._hitPos + 1) + " / " + this._hitNodeIds.length + " 매칭");
+            } else {
+                // 이 경우는 거의 없지만, 바인딩이 갱신 중일 때 한 번 더 기다렸다 재시도
+                setTimeout(() => {
+                    const j = this._indexOfNodeInBinding(nodeId);
+                    if (j >= 0) {
+                        oTable.setFirstVisibleRow(Math.max(0, j - 2));
+                        oTable.setSelectedIndex(j);
+                        sap.m.MessageToast.show((this._hitPos + 1) + " / " + this._hitNodeIds.length + " 매칭");
+                    }
+                }, 120);
+            }
+        },
+
+
+        /** rowsUpdated 이벤트가 잠잠해질 때까지 잠깐 대기 */
+        _waitRowsSettled: function (oTable, idleMs = 150) {
+            return new Promise((resolve) => {
+                let timer;
+                const on = () => {
+                    clearTimeout(timer);
+                    timer = setTimeout(() => {
+                        oTable.detachRowsUpdated(on);
+                        resolve();
+                    }, idleMs);
+                };
+                oTable.attachRowsUpdated(on);
+                on(); // 즉시 1회 트리거
+            });
+        },
+        /**
+ * 모든 'collapsed' 행을 실제로 expand 하며(지연 로딩 트리거) 더 이상 펼칠 게 없을 때까지 반복
+ * - maxPass: 전체 스캔 반복 횟수 상한(안전장치)
+ */
+        _expandAllDeep: async function (oTable, maxPass = 8) {
+            const oBinding = oTable.getBinding("rows");
+            if (!oBinding) return;
+
+            for (let pass = 0; pass < maxPass; pass++) {
+                const len = oBinding.getLength();
+                const ctxs = oBinding.getContexts(0, len);
+                let didExpand = false;
+
+                for (let i = 0; i < ctxs.length; i++) {
+                    const obj = ctxs[i] && ctxs[i].getObject && ctxs[i].getObject();
+                    if (!obj) continue;
+                    // 트리 어노테이션에서 DrillState 사용 중
+                    if (obj.DrillState === "collapsed") {
+                        try { oTable.expand(i); didExpand = true; } catch (e) { }
+                    }
+                }
+
+                if (!didExpand) break;                 // 더 펼칠 노드가 없으면 종료
+                await this._waitRowsSettled(oTable);   // 로딩 안정화 대기 후 다음 패스
+            }
+        },
+
+        _restoreODataBinding: function () {
+            const oTable = this.byId(Control.Table.T_Main);
+            oTable.unbindRows();
+            oTable.setModel(null, "client");
+            oTable.bindRows({
+                path: this._origBindingInfo.path,                 // "/FinancialStatements"
+                filters: this._getTableFilter(),
+                parameters: this._origBindingInfo.parameters,     // Node/ParentNodeID/DrillState
+                events: {
+                    dataRequested: this._onTreeTableRequested.bind(this),
+                    dataReceived: this._onTreeTableReceived.bind(this),
+                }
+            });
+            this._isClientView = false;
+        },
+
+        /** 해당 인덱스로 스크롤하고 선택 + 포커스까지 맞춤 */
+        _scrollSelectFocusRow: function (idx, focusCol = 0) {
+            const oTable = this.byId("T_Main");
+            if (!oTable || idx < 0) return;
+
+            // 스크롤 먼저
+            oTable.setFirstVisibleRow(Math.max(0, idx - 2));
+            oTable.setSelectedIndex(idx);
+
+            // 행 렌더가 끝난 뒤 셀에 포커스 주기
+            const once = () => {
+                oTable.detachRowsUpdated(once);
+                const first = oTable.getFirstVisibleRow();
+                const rel = idx - first;
+                const aRows = oTable.getRows();
+                if (rel >= 0 && rel < aRows.length) {
+                    const aCells = aRows[rel].getCells ? aRows[rel].getCells() : [];
+                    if (aCells[focusCol] && aCells[focusCol].focus) {
+                        aCells[focusCol].focus();
+                    }
+                }
+            };
+            oTable.attachRowsUpdated(once);
+        },
+
+        /** 서버에서 단일 노드의 ParentNodeID 조회 */
+        _serverGetParent: function (nodeId) {
+            if (nodeId == null) return Promise.resolve(null);
+            const oModel = this.getView().getModel();
+
+            // 키 구조를 모르면 filter로 단건 조회
+            return new Promise((resolve, reject) => {
+                oModel.read("/FinancialStatements", {
+                    filters: this._getTableFilter().concat([
+                        new sap.ui.model.Filter("Node", sap.ui.model.FilterOperator.EQ, nodeId)
+                    ]),
+                    urlParameters: { "$top": 1, "$select": "Node,ParentNodeID" },
+                    success: (data) => {
+                        const row = (data && data.results && data.results[0]) || null;
+                        resolve(row ? row.ParentNodeID : null);
+                    },
+                    error: reject
+                });
+            });
+        },
+        /** 바인딩에서 NodeId로 행 인덱스 찾기 */
+        /** 바인딩에서 NodeId로 행 인덱스 찾기 (문자열 비교) */
+        _indexOfNodeInBindingById: function (nodeId) {
+            const want = this._normId(nodeId);
+            const oTable = this.byId("T_Main");
+            const ob = oTable && oTable.getBinding("rows");
+            if (!ob) return -1;
+
+            const len = ob.getLength();
+            const ctxs = ob.getContexts(0, len);
+            for (let i = 0; i < ctxs.length; i++) {
+                const o = ctxs[i] && ctxs[i].getObject && ctxs[i].getObject();
+                if (!o) continue;
+                const cur = this._normId(o.Node != null ? o.Node : o.NodeID);
+                if (cur != null && cur === want) return i;
+            }
+            return -1;
+        },
+
+        _normId: function (v) { return v == null ? null : String(v); },
+
+        /** 행 오브젝트가 쿼리와 매칭되는지 */
+        _rowMatchesQuery: function (obj, q) {
+            const V = v => String(v == null ? "" : v).toLowerCase();
+            // 숫자만(또는 숫자-하이픈)인 경우는 GLAccount에 '포함'보다 '정확 일치' 우선
+            const isGlLike = /^\d[\d-]*$/.test(q);
+            if (isGlLike && V(obj.GlAccount) === q) return true;
+
+            const cands = [obj.NodeText, obj.GlAccount, obj.GlAccountText];
+            return cands.some(v => V(v).includes(q));
+        },
+        /** 현재 가시 컨텍스트에서 'collapsed'만 최대 N개까지 펼친다(너무 많이 안 펴도록 예산 제한) */
+        _expandVisibleOnce: function (oTable, budget = 200) {
+            const oBinding = oTable.getBinding("rows");
+            if (!oBinding) return 0;
+
+            const len = oBinding.getLength();
+            const ctxs = oBinding.getContexts(0, len);
+            let expanded = 0;
+
+            for (let i = 0; i < ctxs.length && expanded < budget; i++) {
+                const obj = ctxs[i] && ctxs[i].getObject && ctxs[i].getObject();
+                if (!obj) continue;
+                if (obj.DrillState === "collapsed") {
+                    try { oTable.expand(i); expanded++; } catch (e) { }
+                }
+            }
+            return expanded;
+        },
 
         _filterTable: function (oFilter) {
             var oVHD = this._oVHD;
@@ -605,68 +1108,36 @@ sap.ui.define([
             });
 
             aCols.push({
-                label: this.i18n.getText("PeriodBalance"), // "당기 금액"
-                template: new sap.m.HBox({
-                    items: [
-                        new sap.m.Link({
-                            // GlAccount가 있을 때만 링크를 표시하고,
-                            // text와 press 이벤트도 조건부로 바인딩
-                            visible: "{= !!${GlAccount} }",
-                            text: {
-                                path: 'PeriodBalance',
-                                type: new sap.ui.model.type.Currency({
-                                    showMeasure: false,
-                                    currencyCode: false
-                                })
-                            },
-                            press: this.onPeriodBalancePress.bind(this)
-                        }),
-                        new sap.m.Text({
-                            // GlAccount가 없을 때만 일반 텍스트를 표시합니다.
-                            visible: "{= !${GlAccount} }",
-                            text: {
-                                path: 'PeriodBalance',
-                                type: new sap.ui.model.type.Currency({
-                                    showMeasure: false,
-                                    currencyCode: false
-                                })
-                            },
-                            textAlign: "End"
-                        })
-                    ],
-                    justifyContent: "End",
-                    width: "100%"
-                }),
-                width: "20rem"
+                label: this.i18n.getText("PeriodBalance"), // "기간 잔액"
+                type: EdmType.Currency,
+                property: 'PeriodBalance',
+                width: 20
             });
 
             aCols.push({
-                label: this.i18n.getText("ComparisonBalance"), // "전기 금액"
-                type: EdmType.Number,
+                label: this.i18n.getText("ComparisonBalance"), // "비교기간 잔액"
+                ype: EdmType.Currency,
                 property: 'ComparisonBalance',
-                unitProperty: 'CompanyCodeCurrency',
                 width: 20
             });
 
             aCols.push({
                 label: this.i18n.getText("AbsoluteDifference"), // "차이 금액"
-                type: EdmType.Number,
+                type: EdmType.Currency,
                 property: 'AbsoluteDifference',
-                unitProperty: 'CompanyCodeCurrency',
                 width: 20
             });
 
             aCols.push({
                 label: this.i18n.getText("RelativeDifference"), // "증감률"
-                type: EdmType.Number,
+                type: EdmType.Currency,
                 property: 'RelativeDifference',
-                unitProperty: 'CompanyCodeCurrency',
                 width: 20
             });
 
             aCols.push({
                 label: this.i18n.getText("CompanyCodeCurrency"), // 통화
-                type: EdmType.String,
+                type: EdmType.Currency,
                 property: 'CompanyCodeCurrency',
                 width: 10
             });
