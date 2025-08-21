@@ -3,18 +3,6 @@ sap.ui.define([], function () {
     "use strict";
     const EPS = 1e-9;
 
-    // function toNumberSafe(v) {
-    //     if (v === null || v === undefined) return NaN;
-    //     if (typeof v === "number") return v;
-    //     if (typeof v === "string") {
-    //         let s = v.trim();
-    //         if (/^\(.*\)$/.test(s)) s = "-" + s.slice(1, -1); // (1,234) -> -1234
-    //         s = s.replace(/,/g, "");
-    //         const n = Number(s);
-    //         return isNaN(n) ? NaN : n;
-    //     }
-    //     return NaN;
-    // }
     function toNumberSafe(v) {
         if (v === null || v === undefined) return NaN;
         if (typeof v === "number") return v;
@@ -27,7 +15,13 @@ sap.ui.define([], function () {
         }
         return NaN;
     }
-
+    function toNumberSafe(v) {
+        if (v === null || v === undefined) return NaN;
+        if (typeof v === "number") return v;
+        const s = String(v).replace(/,/g, "");
+        const n = parseFloat(s);
+        return isNaN(n) ? NaN : n;
+    }
 
     return {
 
@@ -87,7 +81,6 @@ sap.ui.define([], function () {
             return nf.format(n);
         },
 
-
         hideAbsDiffIfBsPl: function (absDiff, parentId) {
             // 절대차이가 숫자 0이고, ParentNodeID가 BS/PL이면 빈칸
             if (Number(absDiff) === 0 && (parentId === "BS" || parentId === "PL")) {
@@ -95,9 +88,30 @@ sap.ui.define([], function () {
             }
             // 그 외에는 원래 값 유지 (필요 시 포맷 추가 가능)
             return absDiff;
+        },
+
+        formatAbsDiff: function (absDiff, parentId) {
+            const n = toNumberSafe(absDiff);
+            if (isNaN(n)) return "";
+
+            const isZero4 = Math.round(n * 10000) === 0;
+
+            // 포맷터 (소수 4자리 고정, 천단위 구분)
+            const nf = sap.ui.core.format.NumberFormat.getFloatInstance({
+                groupingEnabled: true,
+                minFractionDigits: 4,
+                maxFractionDigits: 4
+            });
+
+            // BS / PL 이면 → 0은 빈칸
+            if (parentId === "BS" || parentId === "PL") {
+                return isZero4 ? "" : nf.format(n);
+            }
+
+            // 그 외에는 0도 "0.0000" 로 표시
+            return nf.format(n);
         }
 
 
-
-    };
+    }
 });

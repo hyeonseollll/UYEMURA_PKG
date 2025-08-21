@@ -151,11 +151,15 @@
                         <Label design="Bold" text="{i18n>AbsoluteDifference}" />
                         <table:template>
                             <Text textAlign="End" text="{
-                             parts: ['AbsoluteDifference', 'CompanyCodeCurrency'],
-                              type: 'sap.ui.model.type.Currency',
-                              formatter: '.formatter.hideZeroNumber2',
-formatOptions: {showMeasure: false }
-                }" />
+      parts: [
+        { path: 'AbsoluteDifference' },
+        { path: 'NodeText' },
+        { path: 'CompanyCodeCurrency' }  
+      ],
+      type: 'sap.ui.model.type.Currency',
+      formatter: '.formatter.hideAbsDiffIfBsPl',
+      formatOptions: { showMeasure: false }
+    }" />
                         </table:template>
                     </table:Column>
 
@@ -164,7 +168,12 @@ formatOptions: {showMeasure: false }
                         <Label design="Bold" text="{i18n>RelativeDifference}" />
                         <table:template>
                             <Text textAlign="End" text="{
-                             path : 'RelativeDifference'                               
+                             parts: [
+        { path: 'RelativeDifference' },
+        { path: 'NodeText'}
+      ],
+                             path : 'RelativeDifference' ,
+                             formatter: '.formatter.formatAbsDiff'                             
         }" />
                         </table:template>
                     </table:Column>
