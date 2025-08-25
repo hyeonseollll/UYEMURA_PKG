@@ -27,32 +27,32 @@
 
                             <fb:FilterGroupItem name="PriorEndMonth" label="{i18n>PriorEndMonth}" groupName="MainSearch" visibleInFilterBar="true" mandatory="true">
                                 <fb:control>
-                                    <MultiInput id="MI_PriorEndMonth" width="8rem" showValueHelp="false"/>
+                                    <MultiInput id="MI_PriorEndMonth" width="8rem" showValueHelp="false" />
                                 </fb:control>
                             </fb:FilterGroupItem>
 
                             <fb:FilterGroupItem name="PriorFiscalYear" label="{i18n>PriorFiscalYear}" groupName="MainSearch" visibleInFilterBar="true" mandatory="true">
                                 <fb:control>
-                                    <MultiInput id="MI_PriorYear" width="10rem" showValueHelp="false"/>
+                                    <MultiInput id="MI_PriorYear" width="10rem" showValueHelp="false" />
                                 </fb:control>
                             </fb:FilterGroupItem>
 
                             <!-- 비교 기간 -->
                             <fb:FilterGroupItem name="CurrentStartMonth" label="{i18n>CurrentStartMonth}" groupName="MainSearch" visibleInFilterBar="true" mandatory="true">
                                 <fb:control>
-                                    <MultiInput id="MI_CurrentStartMonth" width="8rem" showValueHelp="false"/>
+                                    <MultiInput id="MI_CurrentStartMonth" width="8rem" showValueHelp="false" />
                                 </fb:control>
                             </fb:FilterGroupItem>
 
                             <fb:FilterGroupItem name="CurrentEndMonth" label="{i18n>CurrentEndMonth}" groupName="MainSearch" visibleInFilterBar="true" mandatory="true">
                                 <fb:control>
-                                    <MultiInput id="MI_CurrentEndMonth" width="8rem" showValueHelp="false"/>
+                                    <MultiInput id="MI_CurrentEndMonth" width="8rem" showValueHelp="false" />
                                 </fb:control>
                             </fb:FilterGroupItem>
 
                             <fb:FilterGroupItem name="CurrentFiscalYear" label="{i18n>CurrentFiscalYear}" groupName="MainSearch" visibleInFilterBar="true" mandatory="true">
                                 <fb:control>
-                                    <MultiInput id="MI_CurrentYear" width="10rem" showValueHelp="false"/>
+                                    <MultiInput id="MI_CurrentYear" width="10rem" showValueHelp="false" />
                                 </fb:control>
                             </fb:FilterGroupItem>
 
@@ -70,6 +70,11 @@
                                     </MultiInput>
                                 </fb:control>
                             </fb:FilterGroupItem>
+                            <fb:FilterGroupItem groupName="FB_GROUP" name="GL0" label="{i18n>GL0}" visibleInFilterBar="true">
+                                <fb:control>
+                                    <CheckBox id="CB_GL0" selected="{Search>/GL0}" />
+                                </fb:control>
+                            </fb:FilterGroupItem>
                         </fb:filterGroupItems>
                     </fb:FilterBar>
                 </f:content>
@@ -82,8 +87,8 @@
                         <contentRight>
                             <SearchField id="SF_TableSearch" width="15rem" search="onTableSearch" />
                             <!-- 엔터/돋보기 클릭도 동일 동작 -->
-                            <Button icon="sap-icon://expand-group" press="onExpandAllPress"/>
-                            <Button icon="sap-icon://collapse-group" press="onCollapseAllPress"/>
+                            <Button icon="sap-icon://expand-group" press="onExpandAllPress" />
+                            <Button icon="sap-icon://collapse-group" press="onCollapseAllPress" />
                             <Button id="B_Excel" busyIndicatorDelay="0" icon="sap-icon://excel-attachment" press="onExport" />
                         </contentRight>
                     </Bar>
@@ -104,62 +109,70 @@
                             <Text textAlign="Left" text="{GlAccount} {GlAccountText}" />
                         </table:template>
                     </table:Column>
-
                     <!-- 기간 잔액 -->
-                    <table:Column hAlign="End">
+                    <table:Column id="COL_PeriodBalance" hAlign="End">
                         <Label design="Bold" text="{i18n>PeriodBalance}" />
                         <table:template>
                             <HBox justifyContent="End" width="100%">
                                 <Link text="{
-                    parts: ['PeriodBalance', 'CompanyCodeCurrency'],
-                    type: 'sap.ui.model.type.Currency',
-                    formatter: '.formatter.hideZeroCurrency',
-                    formatOptions: { showMeasure: false }
-                }" press=".onPeriodBalancePress" visible="{= !!${GlAccount}}" />
+          parts: [
+            { path: 'PeriodBalance' },
+            { path: 'CompanyCodeCurrency' },
+            { path: 'NodeText' }   
+          ],
+          formatter: '.formatter.currencyHideZeroForBsPl'
+        }" press=".onPeriodBalancePress" visible="{= !!${GlAccount}}" />
                                 <Text text="{
-                    parts: ['PeriodBalance', 'CompanyCodeCurrency'],
-
-                    type: 'sap.ui.model.type.Currency',
-                    formatter: '.formatter.hideZeroCurrency',
-                    formatOptions: { showMeasure: false }
-                }" visible="{= !${GlAccount}}" />
+          parts: [
+            { path: 'PeriodBalance' },
+            { path: 'CompanyCodeCurrency' },
+            { path: 'NodeText' }
+          ],
+          formatter: '.formatter.currencyHideZeroForBsPl'
+        }" visible="{= !${GlAccount}}" />
                             </HBox>
                         </table:template>
                     </table:Column>
+
                     <!-- 비교 기간 잔액 -->
-                    <table:Column hAlign="End">
+                    <table:Column id="COL_ComparisonBalance" hAlign="End">
                         <Label design="Bold" text="{i18n>ComparisonBalance}" />
                         <table:template>
                             <HBox justifyContent="End" width="100%">
                                 <Link text="{
-                     parts: ['ComparisonBalance', 'CompanyCodeCurrency'],
-                    type: 'sap.ui.model.type.Currency',
-                    formatter: '.formatter.hideZeroCurrency',
-                    formatOptions: { showMeasure: false }
-                }" press=".onComparisonBalance" visible="{= !!${GlAccount}}" />
+          parts: [
+            { path: 'ComparisonBalance' },
+            { path: 'CompanyCodeCurrency' },
+            { path: 'NodeText' }
+          ],
+          formatter: '.formatter.currencyHideZeroForBsPl'
+        }" press=".onComparisonBalance" visible="{= !!${GlAccount}}" />
                                 <Text text="{
-                   parts: ['ComparisonBalance', 'CompanyCodeCurrency'],
-                    type: 'sap.ui.model.type.Currency',
-                    formatter: '.formatter.hideZeroCurrency',
-                    formatOptions: { showMeasure: false }
-                }" visible="{= !${GlAccount}}" />
+          parts: [
+            { path: 'ComparisonBalance' },
+            { path: 'CompanyCodeCurrency' },
+            { path: 'NodeText' }
+          ],
+          formatter: '.formatter.currencyHideZeroForBsPl'
+        }" visible="{= !${GlAccount}}" />
                             </HBox>
                         </table:template>
                     </table:Column>
+
                     <!-- 절대 차이 -->
                     <table:Column hAlign="End">
                         <Label design="Bold" text="{i18n>AbsoluteDifference}" />
                         <table:template>
                             <Text textAlign="End" text="{
-      parts: [
-        { path: 'AbsoluteDifference' },
-        { path: 'NodeText' },
-        { path: 'CompanyCodeCurrency' }  
-      ],
-      type: 'sap.ui.model.type.Currency',
-      formatter: '.formatter.hideAbsDiffIfBsPl',
-      formatOptions: { showMeasure: false }
-    }" />
+    parts: [
+      { path: 'AbsoluteDifference' },
+      { path: 'CompanyCodeCurrency' },
+      { path: 'NodeText' },
+      { path: 'PeriodBalance' },
+      { path: 'ComparisonBalance' }
+    ],
+    formatter: '.formatter.absDiffFixed2AutoScale'
+  }" />
                         </table:template>
                     </table:Column>
 

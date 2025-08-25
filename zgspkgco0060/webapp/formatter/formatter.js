@@ -110,7 +110,74 @@ sap.ui.define([], function () {
 
             // 그 외에는 0도 "0.0000" 로 표시
             return nf.format(n);
+        },
+        formatAbsDiffNumber: function (absDiff, parentId) {
+            const n = toNumberSafe(absDiff);
+            if (isNaN(n)) return "";
+
+            // BS/PL인 경우 0 → 빈칸
+            if ((parentId === "BS" || parentId === "PL") && Math.abs(n) < EPS) {
+                return "";
+            }
+
+            // 0이면 "0.00" 고정
+            if (Math.abs(n) < EPS) {
+                return "0.00";
+            }
+
+            // 일반 포맷 (천단위 구분, 소수 2자리~2자리)
+            const nf = sap.ui.core.format.NumberFormat.getFloatInstance({
+                groupingEnabled: true,
+                minFractionDigits: 2,
+                maxFractionDigits: 2
+            });
+            return nf.format(n);
+        },
+        absDiffFixed2AutoScale: function (v, curr, parentId, period, comparison) {
+            let n = toNumberSafe(v);
+            const p = toNumberSafe(period);
+            const c = toNumberSafe(comparison);
+            if (isNaN(n)) return "";
+
+            // 서비스 값이 /100로 왔는지 판별 (차이와 비교)
+            if (!isNaN(p) && !isNaN(c)) {
+                const delta = Math.abs(p - c);
+                // delta와 n*100가 거의 같으면 /100로 온 것으로 판단
+                if (delta > 0 && Math.abs(n * 100 - delta) <= Math.max(1, delta * 1e-6)) {
+                    n = n * 100;
+                }
+            }
+
+            if ((parentId === "BS" || parentId === "PL") && Math.abs(n) < EPS) return "";
+
+            const nf = sap.ui.core.format.NumberFormat.getFloatInstance({
+                groupingEnabled: true,
+                minFractionDigits: 2,
+                maxFractionDigits: 2
+            });
+            return nf.format(n);
+        },
+        // 0도 반드시 0.00, BS/PL에서는 0이면 빈칸(원하시면 이 줄 삭제)
+        currencyHideZeroForBsPl: function (amount, curr, nodeText) {
+            const n = toNumberSafe(amount);
+            if (isNaN(n)) return "";
+
+            // BS/PL이고 0이면 숨김 (원치 않으면 이 블록 제거)
+            if ((nodeText === "BS" || nodeText === "PL") && Math.abs(n) < 1e-9) {
+                return "";
+            }
+
+            const nf = sap.ui.core.format.NumberFormat.getCurrencyInstance({
+                showMeasure: false,
+                currencyDigits: false,      // ★ 통화 기본 자릿수 무시
+                minFractionDigits: 2,       // ★ 항상 둘째 자리까지
+                maxFractionDigits: 2
+            });
+
+            return nf.format ? nf.format(n, curr) : nf.formatValue([n, curr], "string");
         }
+
+
 
 
     }
