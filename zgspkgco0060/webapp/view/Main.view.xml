@@ -106,7 +106,14 @@
                     <table:Column hAlign="Left">
                         <Label design="Bold" text="{i18n>GlAccount}" />
                         <table:template>
-                            <Text textAlign="Left" text="{GlAccount} {GlAccountText}" />
+                            <Text textAlign="Left" text="{GlAccount}" />
+                        </table:template>
+                    </table:Column>
+                    <!-- G/L 계정 내역-->
+                    <table:Column hAlign="Left">
+                        <Label design="Bold" text="{i18n>GlAccountText}" />
+                        <table:template>
+                            <Text textAlign="Left" text="{GlAccountText}" />
                         </table:template>
                     </table:Column>
                     <!-- 기간 잔액 -->

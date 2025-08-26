@@ -72,6 +72,7 @@
                 <Property Name="P_CENDMONTH" Type="Edm.String" MaxLength="3" sap:display-format="NonNegative" sap:label="전기 기간"/>
                 <Property Name="P_COMPCD" Type="Edm.String" MaxLength="4" sap:display-format="UpperCase" sap:label="회사 코드"/>
                 <Property Name="P_GLACCOUNT" Type="Edm.String" MaxLength="10" sap:display-format="UpperCase" sap:label="G/L 계정" sap:quickinfo="G/L 계정 번호"/>
+                <Property Name="P_GL0" Type="Edm.Boolean" sap:label="진릿값" sap:quickinfo="진릿값: 참/거짓"/>
             </EntityType>
             <EntityType Name="GLAccount_VHType" sap:label="G/L계정 ValueHelp" sap:content-version="1">
                 <Key>
