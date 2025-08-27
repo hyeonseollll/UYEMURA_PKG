@@ -227,6 +227,45 @@ sap.ui.define([
             this._busyUntilFullyExpanded(oTable, { idleMs: 250, stableRepeats: 2, timeoutMs: 15000 });
         },
 
+        // onTableSearch: async function (oEventOrString) {
+        //     const q =
+        //         (typeof oEventOrString === "string"
+        //             ? oEventOrString
+        //             : (oEventOrString.getParameter("query") || "")).trim();
+
+        //     if (!q) {
+        //         sap.m.MessageToast.show("검색어를 입력하세요.");
+        //         this._searchState = { q: "", hits: [], pos: -1 };
+        //         this._refreshRowHighlights(); // 모두 지움
+        //         return;
+        //     }
+
+        //     // 상태 초기화
+        //     this._searchState = this._searchState || { q: "", hits: [], pos: -1 };
+
+        //     // 새 검색어 → 히트 다시 수집
+        //     if (this._searchState.q !== q || !this._searchState.hits.length) {
+        //         this._searchState.q = q;
+        //         await this._ensureFullyExpandedAndCollectHits(q); // hits 채움
+        //         this._searchState.pos = 0;
+        //     } else {
+        //         // 동일 검색어로 다시 엔터 → 다음 매칭
+        //         this._searchState.pos = (this._searchState.pos + 1) % this._searchState.hits.length;
+        //     }
+
+        //     // 현재 hit로 스크롤만 이동 (선택 X)
+        //     this._scrollToActiveHit();
+
+        //     // CSS 칠하기
+        //     this._refreshRowHighlights();
+
+        //     // 진행 표시
+        //     const n = (this._searchState.pos + 1);
+        //     const N = this._searchState.hits.length;
+        //     if (N) sap.m.MessageToast.show(`${n} / ${N} 매칭`);
+        // },
+
+        // ▶ 교체: onTableSearch
         onTableSearch: async function (oEventOrString) {
             const q =
                 (typeof oEventOrString === "string"
@@ -234,36 +273,55 @@ sap.ui.define([
                     : (oEventOrString.getParameter("query") || "")).trim();
 
             if (!q) {
-                sap.m.MessageToast.show("검색어를 입력하세요.");
+                sap.m.MessageToast.show(this.i18n.getText("toast.enterQuery") || "검색어를 입력하세요.");
                 this._searchState = { q: "", hits: [], pos: -1 };
-                this._refreshRowHighlights(); // 모두 지움
+                this._refreshRowHighlights(); // 강조 초기화
                 return;
             }
 
-            // 상태 초기화
+            // 상태 초기화/재사용
             this._searchState = this._searchState || { q: "", hits: [], pos: -1 };
 
-            // 새 검색어 → 히트 다시 수집
+            // 새 검색어거나 캐시가 비었으면 → 히트 수집
             if (this._searchState.q !== q || !this._searchState.hits.length) {
                 this._searchState.q = q;
-                await this._ensureFullyExpandedAndCollectHits(q); // hits 채움
+                await this._ensureFullyExpandedAndCollectHits(q);
                 this._searchState.pos = 0;
+
+                // ❗ 일치 항목 없음 → 에러 메시지 후 종료
+                if (!this._searchState.hits || this._searchState.hits.length === 0) {
+                    // 토스트
+                    sap.m.MessageToast.show(this.i18n.getText("toast.noMatch") || "일치 항목이 없습니다.");
+
+                    // 팝업을 원하시면 위 한 줄 대신 아래를 쓰세요.
+                    // sap.m.MessageBox.error(this.i18n.getText("toast.noMatch") || "일치 항목이 없습니다.");
+
+                    this._refreshRowHighlights(); // 강조 초기화
+                    return;
+                }
             } else {
-                // 동일 검색어로 다시 엔터 → 다음 매칭
-                this._searchState.pos = (this._searchState.pos + 1) % this._searchState.hits.length;
+                // 동일 검색어 재입력 → 다음 매칭으로 순환
+                const N = this._searchState.hits.length;
+                if (!N) {
+                    sap.m.MessageToast.show(this.i18n.getText("toast.noMatch") || "일치 항목이 없습니다.");
+                    this._refreshRowHighlights();
+                    return;
+                }
+                this._searchState.pos = (this._searchState.pos + 1) % N;
             }
 
             // 현재 hit로 스크롤만 이동 (선택 X)
             this._scrollToActiveHit();
 
-            // CSS 칠하기
+            // CSS 강조 처리
             this._refreshRowHighlights();
 
             // 진행 표시
             const n = (this._searchState.pos + 1);
             const N = this._searchState.hits.length;
-            if (N) sap.m.MessageToast.show(`${n} / ${N} 매칭`);
+            if (N) sap.m.MessageToast.show(`${n} / ${N} ${this.i18n.getText("toast.matchProgressSuffix") || "매칭"}`);
         },
+
 
         _scrollToActiveHit: function () {
             const oTable = this.byId("T_Main");
@@ -520,7 +578,7 @@ sap.ui.define([
                 level: hit.level
             });
         },
-        
+
         _refreshRowHighlights: function () {
             const oTable = this.byId("T_Main");
             const ob = oTable && oTable.getBinding("rows");
@@ -1611,7 +1669,7 @@ sap.ui.define([
                     return null;
                 }
                 const y = parseInt(raw, 10);
-    
+
                 if (y < 1900 || y > 2100) {
                     sap.m.MessageToast.show(this.i18n.getText("err.year.range"));
                     return null;
