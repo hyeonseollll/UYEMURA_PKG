@@ -42,49 +42,6 @@ sap.ui.define([
         /******************************************************************
              * Life Cycle
              ******************************************************************/
-        // onInit: function () {
-        //     // i18n Init
-        //     this.i18n = this.getOwnerComponent().getModel("i18n").getResourceBundle();
-        //     oView = this.getView();
-        //     oView.setModel(new JSONModel(), "oResult");
-        //     oView.setModel(Model.createDateRangeModel(), 'DateRange');
-        //     // ▼ 월/연도 MultiInput 토큰 세팅 + validator 연결
-        //     this._initMonthYearInputs();
-
-        //     //GL 데이터
-        //     oView.setModel(new JSONModel(), "oGLAccount");
-        //     vVHGL = oView.getModel("oGLAccount"),
-        //         Model.readODataModel("ZSB_FISTATEMENTS_UI_O2", "GLAccount_VH", null, null, null)
-        //             .then((vMVGLH) => {
-        //                 vVHGL.setProperty("/", vMVGLH.results); // results로 바인딩
-        //             })
-        //             .catch((err) => console.error(err));
-
-
-        //     //---------------------------------------------------------------/
-        //     // Change Filterbar's Go Text
-        //     //---------------------------------------------------------------/
-        //     let oFilter = this.byId(Control.FilterBar.FB_MainSearch);
-        //     oFilter.addEventDelegate({
-        //         "onAfterRendering": function (oEvent) {
-        //             let oButton = oEvent.srcControl._oSearchButton;
-        //             if (oButton) {
-        //                 oButton.setText(this.i18n.getText("goButton"));
-        //             }
-        //         }.bind(this)
-        //     });
-
-        //     //---------------------------------------------------------------/
-        //     // Search Model 
-        //     //---------------------------------------------------------------/
-        //     this.getView().setModel(Model.createSearchModel(), 'Search');
-
-        //     //---------------------------------------------------------------/
-        //     // Search Model 
-        //     //---------------------------------------------------------------/
-        //     let oTreeTable = this.getView().byId(Control.Table.T_Main);
-        //     //this._bindTable(oTreeTable);
-        // },
 
         onInit: function () {
 
@@ -130,7 +87,7 @@ sap.ui.define([
             if (!oSearch.getProperty("/CompanyCode")) {
                 oSearch.setProperty("/CompanyCode", "4310"); // 환경에 맞게
             }
-            // 🔹 GL0 기본값 초기화 (체크박스용)
+            // GL0 기본값 초기화 (체크박스용)
 
             if (oSearch.getProperty("/GL0") === undefined) {
                 oSearch.setProperty("/GL0", false);  // 초기 unchecked
@@ -141,31 +98,6 @@ sap.ui.define([
             this._bindTable(oTreeTable);
         },
 
-
-        // onAfterRendering: function () {
-        //     this._setPeriodHeaders();
-
-        //     const oTable = this.byId(Control.Table.T_Main);
-
-        //     // ❌ 아래 줄은 제거 (None -> Single 전환 중 하이라이트가 튀는 원인)
-        //     // this.byId("T_Main").setSelectionMode(sap.ui.table.SelectionMode.None);
-
-        //     // ✅ 처음부터 단일선택 + Row 단위
-        //     oTable.setSelectionMode(sap.ui.table.SelectionMode.Single);
-        //     oTable.setSelectionBehavior(sap.ui.table.SelectionBehavior.Row);
-
-        //     // 가시행 고정
-        //     oTable.setVisibleRowCountMode(sap.ui.table.VisibleRowCountMode.Fixed);
-        //     oTable.setVisibleRowCount(25);
-
-        //     if (oTable && typeof oTable.attachCollapse === "function") {
-        //         oTable.attachCollapse(this.onCollapse.bind(this));
-        //         oTable.attachExpand(this.onExpand.bind(this));
-        //         this._bindColumns(oTable);
-        //     }
-        // },
-
-        // (A) onAfterRendering 끝부분에 한 번만 연결
         onAfterRendering: function () {
             this._setPeriodHeaders();
 
@@ -295,17 +227,6 @@ sap.ui.define([
             this._busyUntilFullyExpanded(oTable, { idleMs: 250, stableRepeats: 2, timeoutMs: 15000 });
         },
 
-        // onTableSearch: function (oEventOrString) {
-        //     const sQuery =
-        //         (typeof oEventOrString === "string"
-        //             ? oEventOrString
-        //             : (oEventOrString.getParameter("query") || "")).trim();
-        //     console.log("onTableSearch function has been called. Query is:", sQuery);
-
-
-        //     if (!sQuery) { sap.m.MessageToast.show("검색어를 입력하세요."); return; }
-        //     this.jumpToQuery(sQuery, { focusCol: 0 });
-        // },
         onTableSearch: async function (oEventOrString) {
             const q =
                 (typeof oEventOrString === "string"
@@ -581,52 +502,6 @@ sap.ui.define([
             this.getView().addDependent(sheet);
             sheet.openBy(oEvent.getSource());
         },
-        /** 모두 접힌 상태라도, 얕게→넓게 펼치며 매칭을 찾으면 즉시 점프 */
-        // jumpToQuery: async function (sQuery, options) {
-        //     const oTable = this.byId("T_Main");
-        //     const oBinding = oTable && oTable.getBinding("rows");
-        //     if (!oBinding) { sap.m.MessageToast.show("먼저 조회를 실행하세요."); return; }
-
-        //     const opt = Object.assign({
-        //         maxRounds: 12,      // 확장 라운드 상한 (너무 많이 펴지 않도록)
-        //         perRoundBudget: 200, // 라운드당 펼칠 최대 노드 수
-        //         focusCol: 0
-        //     }, options);
-
-        //     const q = (sQuery || "").toLowerCase();
-
-        //     // 0) 루트가 다 닫혀있으면 최소 1레벨은 보이게
-        //     try { oTable.expandToLevel(5); } catch (e) { }
-        //     await this._waitRowsSettled(oTable, 120);
-
-        //     // 매 라운드: (찾기 → 못 찾으면 조금 펼치기 → 안정화 대기) 반복
-        //     for (let round = 0; round < opt.maxRounds; round++) {
-        //         // A) 현재 가시 영역에서 먼저 찾기
-        //         const len = oBinding.getLength();
-        //         const ctxs = oBinding.getContexts(0, len);
-        //         for (let i = 0; i < ctxs.length; i++) {
-        //             const obj = ctxs[i] && ctxs[i].getObject && ctxs[i].getObject();
-        //             if (!obj) continue;
-        //             if (this._rowMatchesQuery(obj, q)) {
-        //                 this._scrollSelectFocusRow(i, opt.focusCol);
-        //                 return;
-        //             }
-        //         }
-
-        //         // B) 못 찾았으면 가볍게 한 층 더 펼치기
-        //         const expanded = this._expandVisibleOnce(oTable, opt.perRoundBudget);
-
-        //         // 더 펼칠 게 없으면 종료
-        //         if (!expanded) break;
-
-        //         // C) 로딩 안정화 대기 후 다음 라운드
-        //         await this._waitRowsSettled(oTable, 180);
-        //     }
-
-        //     // sap.m.MessageToast.show("일치 항목이 없습니다.");
-        //     sap.m.MessageToast.show(this.i18n.getText("toast.noMatch"));
-        // },
-        /** 해당 hit 의 행 위치로만 스크롤 (선택/하이라이트 없음) */
         _scrollToHit: function (hit) {
             const oTable = this.byId("T_Main");
             if (!oTable || !hit) return;
@@ -684,8 +559,6 @@ sap.ui.define([
                 }
             }
         },
-
-
 
         // 2) 선택할 때는 NodeID → 현재 인덱스로 변환해서 선택
         jumpToQuery: async function (sQuery, options) {
@@ -794,37 +667,6 @@ sap.ui.define([
                 sap.m.MessageToast.show(this.i18n.getText("toast.noMatch") || "일치 항목이 없습니다.");
             }
         },
-
-        // _rowMatchScore: function (obj, qRaw) {
-        //     const Q = this._normStr(qRaw);
-        //     if (!Q) return 0;
-
-        //     const acc = this._normStr(obj.GlAccount || "");
-        //     const name = this._normStr(obj.GlAccountText || "");
-        //     const node = this._normStr(obj.NodeText || "");
-
-        //     // 숫자/하이픈 → 계정번호 정확 일치 최우선
-        //     if (/^\d[\d-]*$/.test(Q)) {
-        //         if (acc && (acc === Q || acc.replace(/-/g, "") === Q.replace(/-/g, ""))) return 10000;
-        //         return 0;
-        //     }
-
-        //     // 완전 일치(헤더/계정명)
-        //     if (node === Q || name === Q) return 9000;
-
-        //     // 토큰 정확 일치(언더스코어 유지)
-        //     const tokensNode = this._tokenize(node);
-        //     const tokensName = this._tokenize(name);
-        //     if (tokensNode.includes(Q) || tokensName.includes(Q)) return 6000;
-
-        //     // 시작 일치 / 부분 포함
-        //     let score = 0;
-        //     if (node.startsWith(Q) || name.startsWith(Q)) score = Math.max(score, 800);
-        //     if ((node && node.includes(Q)) || (name && name.includes(Q))) score = Math.max(score, 200);
-
-
-        //     return score;
-        // },
         _rowMatchScore: function (obj, qRaw) {
             const q = (qRaw || "").toLowerCase().trim();
             if (!q) {
@@ -890,72 +732,6 @@ sap.ui.define([
             }
             return [start, end]; // half-open [start, end)
         },
-        // 1) 히트 수집: 인덱스가 아니라 NodeID를 저장
-        // (교체) 히트 수집
-        // _ensureFullyExpandedAndCollectHits: async function (sQuery) {
-        //     const oTable = this.byId("T_Main");
-        //     const ob = oTable && oTable.getBinding("rows");
-        //     if (!ob) { this._searchState.hits = []; this._searchState.pos = -1; return; }
-
-        //     // 전체 펼쳐 로딩 안정화
-        //     if (!this._isClientView) {
-        //         try { oTable.expandToLevel(5); } catch (e) { }
-        //         await this._waitRowsSettled(oTable, 120);
-        //         try { oTable.expandToLevel(99); } catch (e) { }
-        //         await this._expandAllDeep(oTable, 30);
-        //         await this._waitRowsSettled(oTable, 220);
-        //     } else {
-        //         await this._waitRowsSettled(oTable, 120);
-        //     }
-
-        //     const len = ob.getLength();
-        //     const ctxs = ob.getContexts(0, len);
-        //     const hits = [];
-
-        //     for (let i = 0; i < ctxs.length; i++) {
-        //         const obj = ctxs[i] && ctxs[i].getObject && ctxs[i].getObject();
-        //         if (!obj) continue;
-
-        //         const score = this._rowMatchScore(obj, sQuery);
-        //         // if (score <= 0) continue;
-        //         if (score > 0) {
-        //             console.log("[HIT-CAND]", i, obj.NodeID, obj.NodeText, obj.GlAccountText, "score=", score);
-        //         }
-        //         hits.push({
-        //             id: String(obj.Node != null ? obj.Node : obj.NodeID),
-        //             parent: (obj.ParentNodeID != null ? String(obj.ParentNodeID)
-        //                 : (obj.ParentNode != null ? String(obj.ParentNode) : null)),
-        //             level: (obj.HierarchyLevel != null ? obj.HierarchyLevel : 0),
-        //             text: obj.NodeText || null,
-        //             gl: (obj.GlAccount != null ? String(obj.GlAccount) : null),this._scrollSelectHighlightReliable(hits[0], focusCol);
-        //             isLeaf: !!(obj.GlAccount && String(obj.GlAccount).trim()),   // ★ 추가
-        //             score,                                                       // 우선순위
-        //             order: i                                                     // 현재 테이블 순서
-        //         });
-
-        //     }
-
-        //     hits.sort((a, b) => {
-        //         if (b.score !== a.score) return b.score - a.score;          // 1) 점수
-        //         if (a.isLeaf !== b.isLeaf) return (b.isLeaf ? 1 : 0) - (a.isLeaf ? 1 : 0); // 2) 리프 우선
-        //         if (a.level !== b.level) return b.level - a.level;           // 3) 더 깊은 레벨 우선
-        //         return a.order - b.order;                                    // 4) 현재 순서
-        //     });
-
-
-        //     // ✅ 여기에서 찍기
-        //     console.log("[HITS-FINAL]", hits.map(h => ({
-        //         id: h.id,
-        //         text: h.text,
-        //         gl: h.gl,
-        //         score: h.score,
-        //         order: h.order
-        //     })));
-
-        //     this._searchState.hits = hits;   // [{id, score, level, ...}]
-        //     this._searchState.pos = -1;
-        // },
-
         _ensureFullyExpandedAndCollectHits: async function (sQuery) {
             const oTable = this.byId("T_Main");
             const ob = oTable && oTable.getBinding("rows");
@@ -1314,101 +1090,6 @@ sap.ui.define([
             }, 50); // 50ms (0.05초) 지연
         },
 
-
-        // _scrollSelectHighlightReliable: async function (hit, focusCol = 0) {
-        //     const oTable = this.byId("T_Main");
-        //     if (!oTable || !hit) return;
-
-        //     // A. 현재 바인딩에서 일단 인덱스 산출
-        //     let idx = this._indexOfHitInBinding(hit);
-        //     if (idx < 0) return;
-
-        //     // B. 화면 중앙 근처로 스크롤 맞추고 안정화 대기
-        //     const half = Math.floor((oTable.getVisibleRowCount() || 10) / 2);
-        //     const targetFirst = Math.max(0, idx - half);
-        //     if (oTable.getFirstVisibleRow() !== targetFirst) {
-        //         oTable.setFirstVisibleRow(targetFirst);
-        //         await this._waitBindingStableOnce(140);
-        //     }
-
-        //     // C. 렌더 후 다시 인덱스 재산출(가상 스크롤 보정의 핵심)
-        //     idx = this._indexOfHitInBinding(hit);
-        //     if (idx < 0) return;
-
-        //     // D. 선택(Interval 방식이 setSelectedIndex보다 튼튼)
-        //     oTable.clearSelection();
-        //     oTable.setSelectionInterval(idx, idx);
-
-        //     // E. 아주 짧게 한 프레임 양보 후 검증 → 빗나가면 1회 재시도
-        //     setTimeout(async () => {
-        //         const ob = oTable.getBinding("rows");
-        //         const ctx = ob && ob.getContextByIndex(idx);
-        //         const row = ctx && ctx.getObject && ctx.getObject();
-
-        //         const sameGl = String(row?.GlAccount || "") === String(hit.gl || "");
-        //         const sameText = this._normStr(row?.NodeText || row?.GlAccountText || "")
-        //             === this._normStr(hit.text || "");
-
-        //         if (!(sameGl || sameText)) {
-        //             // 한 번 강제 리렌더 후 재선택
-        //             oTable.invalidate();
-        //             await this._waitBindingStableOnce(120);
-
-        //             const idx2 = this._indexOfHitInBinding(hit);
-        //             if (idx2 >= 0) {
-        //                 oTable.clearSelection();
-        //                 oTable.setSelectionInterval(idx2, idx2);
-        //                 idx = idx2;
-        //             }
-        //         }
-
-
-        //         const sameNode = this._normStr(row?.NodeText || "") === this._normStr(hit.nodeText || "");
-        //         const sameGLTx = this._normStr(row?.GlAccountText || "") === this._normStr(hit.glText || "");
-
-        //         // 둘 중 “지정된 것들”이 모두 일치해야 true
-        //         let ok = true;
-        //         if (hit.nodeText) ok = ok && sameNode;
-        //         if (hit.glText) ok = ok && sameGLTx;
-
-        //         if (!ok) {
-        //             oTable.invalidate();
-        //             await this._waitBindingStableOnce(120);
-        //             const idx2 = this._indexOfHitInBinding(hit);
-        //             if (idx2 >= 0) {
-        //                 oTable.clearSelection();
-        //                 oTable.setSelectionInterval(idx2, idx2);
-        //                 idx = idx2;
-        //             }
-        //         }
-
-        //         // 포커스 주기
-        //         const first = oTable.getFirstVisibleRow();
-        //         const rel = idx - first;
-        //         const rowCtrl = oTable.getRows()[rel];
-        //         const cells = rowCtrl ? rowCtrl.getCells() : [];
-        //         if (cells[focusCol] && cells[focusCol].focus) {
-        //             cells[focusCol].focus();
-        //         }
-
-        //         // 디버깅 로그(원하시면 유지)
-        //         try {
-        //             const fin = oTable.getBinding("rows").getContextByIndex(idx)?.getObject();
-        //             console.log("[HIGHLIGHT-CHECK]", {
-        //                 idx,
-        //                 nodeText: fin?.NodeText,
-        //                 glText: fin?.GlAccountText,
-        //                 gl: fin?.GlAccount,
-        //                 parent: fin?.ParentNodeID || fin?.ParentNode,
-        //                 level: fin?.HierarchyLevel,
-        //                 hit_gl: hit.gl,
-        //                 hit_text: hit.text
-        //             });
-        //         } catch (e) { }
-        //     }, 0);
-        // },
-
-
         _matchRow: function (obj, qRaw) {
             const q = (qRaw || "").toLowerCase().trim();
             if (!q) {
@@ -1528,33 +1209,6 @@ sap.ui.define([
                 on(); // 즉시 1회 트리거
             });
         },
-        /**
- * 모든 'collapsed' 행을 실제로 expand 하며(지연 로딩 트리거) 더 이상 펼칠 게 없을 때까지 반복
- * - maxPass: 전체 스캔 반복 횟수 상한(안전장치)
- */
-        // _expandAllDeep: async function (oTable, maxPass = 8) {
-        //     const oBinding = oTable.getBinding("rows");
-        //     if (!oBinding) return;
-
-        //     for (let pass = 0; pass < maxPass; pass++) {
-        //         const len = oBinding.getLength();
-        //         const ctxs = oBinding.getContexts(0, len);
-        //         let didExpand = false;
-
-        //         for (let i = 0; i < ctxs.length; i++) {
-        //             const obj = ctxs[i] && ctxs[i].getObject && ctxs[i].getObject();
-        //             if (!obj) continue;
-        //             // 트리 어노테이션에서 DrillState 사용 중
-        //             if (obj.DrillState === "collapsed") {
-        //                 try { oTable.expand(i); didExpand = true; } catch (e) { }
-        //             }
-        //         }
-
-        //         if (!didExpand) break;                 // 더 펼칠 노드가 없으면 종료
-        //         await this._waitRowsSettled(oTable);   // 로딩 안정화 대기 후 다음 패스
-        //     }
-        // },
-        // 기존 함수 교체
         _expandAllDeep: async function (oTable, maxPass = 30) {
             const oBinding = oTable.getBinding("rows");
             if (!oBinding) return;
@@ -1770,7 +1424,7 @@ sap.ui.define([
             // 회사코드
             aFilter.push(new Filter("P_COMPCD", FilterOperator.EQ, oSearch.CompanyCode.split(" ")[0]));
 
-            // ✅ GL0 체크박스: true 일 때만 파라미터 전송
+            //  GL0 체크박스: true 일 때만 파라미터 전송
             if (oSearch.GL0 === true) {
                 // 백엔드가 Boolean을 받으면:
                 aFilter.push(new Filter("P_GL0", FilterOperator.EQ, true));
@@ -1902,25 +1556,6 @@ sap.ui.define([
             sap.m.URLHelper.redirect(window.location.href.split("#")[0] + sHref, true);
         },
 
-        // ====== 토큰 유틸 & 초기화 ======
-        // _initMonthYearInputs: function () {
-        //     ["MI_PriorStartMonth", "MI_PriorEndMonth", "MI_CurrentStartMonth", "MI_CurrentEndMonth"]
-        //         .forEach(id => this._attachMonthValidator(id));
-        //     ["MI_PriorYear", "MI_CurrentYear"].forEach(id => this._attachYearValidator(id));
-
-        //     const today = new Date();
-        //     const y = String(today.getFullYear());
-        //     const m = String(today.getMonth() + 1).padStart(3, "0"); // ← 현재 달(001~012)
-
-        //     // 시작월 기본값은 기존 정책 유지(000), 종료월은 현재 달로
-        //     this._setSingleToken("MI_PriorStartMonth", "000");
-        //     this._setSingleToken("MI_PriorEndMonth", m);   // ← 현재 달
-        //     this._setSingleToken("MI_CurrentStartMonth", "000");
-        //     this._setSingleToken("MI_CurrentEndMonth", m);   // ← 현재 달
-
-        //     this._setSingleToken("MI_PriorYear", y);
-        //     this._setSingleToken("MI_CurrentYear", y);
-        // },
         _initMonthYearInputs: function () {
             ["MI_PriorStartMonth", "MI_PriorEndMonth", "MI_CurrentStartMonth", "MI_CurrentEndMonth"]
                 .forEach(id => this._attachMonthValidator(id));
@@ -1971,13 +1606,12 @@ sap.ui.define([
             if (!mi) return;
             mi.addValidator(args => {
                 const raw = (args.text || "").trim();
-                // if (!/^\d{4}$/.test(raw)) { sap.m.MessageToast.show("연도는 YYYY(4자리)로 입력하세요."); return null; }
                 if (!/^\d{4}$/.test(raw)) {
                     sap.m.MessageToast.show(this.i18n.getText("err.year.format"));
                     return null;
                 }
                 const y = parseInt(raw, 10);
-                // if (y < 1900 || y > 2100) { sap.m.MessageToast.show("연도 범위: 1900~2100"); return null; }
+    
                 if (y < 1900 || y > 2100) {
                     sap.m.MessageToast.show(this.i18n.getText("err.year.range"));
                     return null;
@@ -1989,13 +1623,7 @@ sap.ui.define([
 
         _checkRequiredFields: function (sPriorYear, sCurrYear, sPriorStart, sPriorEnd, sCurrStart, sCurrEnd) {
             if (!sPriorYear || !sCurrYear || !sPriorStart || !sPriorEnd || !sCurrStart || !sCurrEnd) {
-                // MessageBox.error(
-                //     "기준 기간과 비교 기간의 시작 월, 종료 월, 회계연도를 모두 입력하세요.",
-                //     {
-                //         title: "입력 오류",
-                //         styleClass: "sapUiSizeCompact"
-                //     }
-                // );
+
                 MessageBox.error(
                     this.i18n.getText("err.input.missingPeriods"),
                     { title: this.i18n.getText("title.inputError"), styleClass: "sapUiSizeCompact" }
