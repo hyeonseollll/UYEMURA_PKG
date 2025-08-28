@@ -1,16 +1,66 @@
-/* Enter your custom styles here *//* 검색 매칭 행 전체 하이라이트 */
 .myHitRow .sapUiTableCell {
-  background: rgba(255, 235, 59, .30) !important;
+  background: rgba(0, 200, 180, 0.25) !important; /* 민트톤 */
 }
-
-/* 헤더(행 번호 영역)도 색 맞추려면 선택 */
 .myHitRow .sapUiTableRowHdrScr,
 .myHitRow .sapUiTableRowHdr {
-  background: rgba(255, 235, 59, .30) !important;
+  background: rgba(0, 200, 180, 0.25) !important;
 }
 
-/* 선택색(파랑) 덮어쓰기 */
-.sapUiTableRowSel .sapUiTableCell {
-  box-shadow: inset 0 0 0 2px rgba(33,150,243,.4);
-  background: inherit !important;
+.sumCellYellow .sapUiTableCell,
+ .sumCellYellow {
+  background-color: #fff7bf !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
+
+/* 합계행: TD에 직접 칠해서 행이 끊기지 않도록 */
+.sapUiTable .sumCellYellow-td{ 
+  background-color:#fff7bf !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+} 
+/* TD 자체에 색을 칠함 */
+.sapUiTable .sapUiTableCell.sumCellYellow-td{
+  background-color:#fff7bf !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.myHitRow .sapUiTableCell,
+.myHitRow .sapUiTableRowHdrScr,
+.myHitRow .sapUiTableRowHdr,
+.sumCellYellow,
+.sumCellYellow .sapUiTableCell {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* 기본 하이라이트 */
+.sumCellYellow,
+.sumCellYellow .sapMText,        /* 내부 텍스트 컨트롤이 배경을 덮지 않도록 */
+.sumCellYellow .sapUiTv {
+  background-color: #fff7bf !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* 가로 방향: 노란 셀들이 서로 이웃할 때, 사이 경계선(왼쪽)을 노란색으로 덮음 */
+.sapUiTableCtrl tr td.sumCellYellow + td.sumCellYellow {
+  border-left-color: #fff7bf !important;
+}
+
+/* 세로 방향: 윗줄의 노란 셀과 아랫줄의 노란 셀이 맞닿는 경계선(위쪽)을 노란색으로 덮음 */
+.sapUiTableCtrl tr:not(:first-child) td.sumCellYellow {
+  border-top-color: #fff7bf !important;
+}
+
+/* 선택/호버 시에도 색 유지 */
+.sapUiTableRowSel td.sumCellYellow,
+.sapUiTableRowHvr td.sumCellYellow {
+  background-color: #fff7bf !important;
+}
+
+/* 인쇄 시 강제 컬러 유지 */
+@media print {
+  td.sumCellYellow { background-color:#fff7bf !important; }
+}
+

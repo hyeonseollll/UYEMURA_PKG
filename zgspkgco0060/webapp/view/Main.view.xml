@@ -81,7 +81,7 @@
             </f:DynamicPageHeader>
         </f:header>
         <f:content>
-            <table:TreeTable id="T_Main" selectionMode="Single" busyIndicatorDelay="0" enableColumnReordering="false" enableCustomFilter="true" enableBusyIndicator="true" rootLevel="1" visibleRowCountMode="Auto">
+            <table:TreeTable id="T_Main" rowHeight="20" selectionMode="Single" busyIndicatorDelay="0" enableColumnReordering="false" enableCustomFilter="true" enableBusyIndicator="true" rootLevel="1" visibleRowCountMode="Auto">
                 <table:extension>
                     <Bar>
                         <contentRight>
@@ -90,12 +90,13 @@
                             <Button icon="sap-icon://expand-group" press="onExpandAllPress" />
                             <Button icon="sap-icon://collapse-group" press="onCollapseAllPress" />
                             <Button id="B_Excel" busyIndicatorDelay="0" icon="sap-icon://excel-attachment" press="onExport" />
+                            <Button id="B_Print" busyIndicatorDelay="0" icon="sap-icon://print" press="onPrint" />
                         </contentRight>
                     </Bar>
                 </table:extension>
                 <table:columns>
                     <!-- 내역 -->
-                    <table:Column hAlign="Center">
+                    <table:Column hAlign="Center"  width="20rem">
                         <Label design="Bold" text="{i18n>NodeText}" />
                         <table:template>
                             <Text textAlign="Begin" text="{NodeText}" />
@@ -103,21 +104,21 @@
                     </table:Column>
 
                     <!-- G/L 계정 -->
-                    <table:Column hAlign="Left">
+                    <table:Column hAlign="Left"  width="10rem">
                         <Label design="Bold" text="{i18n>GlAccount}" />
                         <table:template>
                             <Text textAlign="Left" text="{GlAccount}" />
                         </table:template>
                     </table:Column>
                     <!-- G/L 계정 내역-->
-                    <table:Column hAlign="Left">
+                    <table:Column hAlign="Left" width="20rem">
                         <Label design="Bold" text="{i18n>GlAccountText}" />
                         <table:template>
                             <Text textAlign="Left" text="{GlAccountText}" />
                         </table:template>
                     </table:Column>
                     <!-- 기간 잔액 -->
-                    <table:Column id="COL_PeriodBalance" hAlign="End">
+                    <table:Column id="COL_PeriodBalance" hAlign="End" width="12rem">
                         <Label design="Bold" text="{i18n>PeriodBalance}" />
                         <table:template>
                             <HBox justifyContent="End" width="100%">
@@ -142,7 +143,7 @@
                     </table:Column>
 
                     <!-- 비교 기간 잔액 -->
-                    <table:Column id="COL_ComparisonBalance" hAlign="End">
+                    <table:Column id="COL_ComparisonBalance" hAlign="End" width="12rem">
                         <Label design="Bold" text="{i18n>ComparisonBalance}" />
                         <table:template>
                             <HBox justifyContent="End" width="100%">
@@ -167,7 +168,7 @@
                     </table:Column>
 
                     <!-- 절대 차이 -->
-                    <table:Column hAlign="End">
+                    <table:Column hAlign="End" width="10rem">
                         <Label design="Bold" text="{i18n>AbsoluteDifference}" />
                         <table:template>
                             <Text textAlign="End" text="{
@@ -184,7 +185,7 @@
                     </table:Column>
 
                     <!-- 상대 차이 -->
-                    <table:Column hAlign="End">
+                    <table:Column hAlign="End" width="6rem">
                         <Label design="Bold" text="{i18n>RelativeDifference}" />
                         <table:template>
                             <Text textAlign="End" text="{
@@ -198,7 +199,7 @@
                         </table:template>
                     </table:Column>
                     <!-- 단위 -->
-                    <table:Column hAlign="Left" width="10%">
+                    <table:Column hAlign="Left"  width="5rem">
                         <Label design="Bold" text="{i18n>CompanyCodeCurrency}" />
                         <table:template>
                             <Text textAlign="Left" text="{CompanyCodeCurrency}" />

@@ -66,7 +66,8 @@ sap.ui.define([
         onSearch: function (oEvent) {
             var oRunTypeCK = this.byId("IP_RunType").getValue()
             if (!oRunTypeCK) {
-                sap.m.MessageToast.show("런타입을 입력하세요");
+                // sap.m.MessageToast.show("런타입을 입력하세요");
+                 sap.m.MessageToast.show(this.i18n.getText("msgRunTypeRequired")); 
                 return;
             }
             let oTable = this.getView().byId(Control.Table.T_Main);

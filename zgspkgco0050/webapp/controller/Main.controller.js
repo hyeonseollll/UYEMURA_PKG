@@ -1,6 +1,6 @@
 sap.ui.define([
     "sap/ui/core/mvc/Controller",
-    "com/worldex/co/zworldexco0013/model/models",
+    "com/gspkg/co/zgspkgco0050/model/models",
     "sap/ui/model/Filter",
     "sap/ui/model/FilterOperator",
     'sap/ui/export/library',
@@ -26,7 +26,7 @@ sap.ui.define([
         }
     };
 
-    return Controller.extend("com.worldex.co.zworldexco0013.controller.Main", {
+    return Controller.extend("com.gspkg.co.zgspkgco0050.controller.Main", {
         /******************************************************************
              * Life Cycle
              ******************************************************************/
@@ -65,7 +65,8 @@ sap.ui.define([
         onSearch: function (oEvent) {
             var oRunTypeCK = this.byId("IP_RunType").getValue()
             if (!oRunTypeCK) {
-                sap.m.MessageToast.show("런타입을 입력하세요");
+                // sap.m.MessageToast.show("런타입을 입력하세요");
+                sap.m.MessageToast.show(this.i18n.getText("msgRunTypeRequired"));
                 return;
             }
             let oTable = this.getView().byId(Control.Table.T_Main);
@@ -81,11 +82,11 @@ sap.ui.define([
             let oTreeTable = this.getView().byId(Control.Table.T_Main);
             let oRowBinding = oTreeTable.getBinding('rows');
 
-            this.getView().getModel().read('/Main/$count', {
+            this.getView().getModel().read('/IncomeStatement/$count', {
                 urlParameters: this._makeURL(oRowBinding.sFilterParams),
                 success: function (oResult) {
                     this.count = oResult;
-                    this.getView().getModel().read('/Main', {
+                    this.getView().getModel().read('/IncomeStatement', {
                         urlParameters: this._makeURL(oRowBinding.sFilterParams, oResult),
                         success: function (oResult) {
                             this.data = oResult.results
@@ -120,7 +121,7 @@ sap.ui.define([
         _bindTable: function (oTable) {
             console.log(oTable);
             oTable.bindRows({
-                path: "/Main",
+                path: "/IncomeStatement",
                 filters: this._getTableFilter(),
                 parameters: {
                     countMode: "Inline",
@@ -147,7 +148,7 @@ sap.ui.define([
 
         _onTreeTableReceived: function () {
             let oTable = this.getView().byId(Control.Table.T_Main);
-            // oTable.expandToLevel(5);
+            oTable.expandToLevel(5);
             var aIndices = oTable.getBinding("rows").getContexts(0, oTable.getBinding("rows").getLength());
 
             aIndices.forEach(function (oContext, iIndex) {
@@ -163,7 +164,7 @@ sap.ui.define([
                     }
                 }
             });
-            
+
             oTable.setBusy(false);
         },
 
@@ -203,8 +204,9 @@ sap.ui.define([
             let oFilterCompanyCode = new Filter({
                 path: "P_COMPCD",
                 operator: FilterOperator.EQ,
-                value1: oSearch.CompanyCode,
+                value1: oSearch.CompanyCode.split(" ")[0]
             });
+
 
             let oFilterRunType = new Filter({
                 path: "P_RUNTYPE",
@@ -272,7 +274,7 @@ sap.ui.define([
                 "$filter": sfilters.substring(1, sfilters.length - 1)
             };
             if (icount) {
-                _.set(ofilters, "$top", icount);
+                ofilters["$top"] = icount;
             }
             return ofilters;
         }
