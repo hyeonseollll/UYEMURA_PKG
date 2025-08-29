@@ -81,7 +81,7 @@
             </f:DynamicPageHeader>
         </f:header>
         <f:content>
-            <table:TreeTable id="T_Main" rowHeight="20" selectionMode="Single" busyIndicatorDelay="0" enableColumnReordering="false" enableCustomFilter="true" enableBusyIndicator="true" rootLevel="1" visibleRowCountMode="Auto">
+            <table:TreeTable id="T_Main" rowHeight="20" selectionMode="Single" busyIndicatorDelay="0" enableColumnReordering="false" nableBusyIndicator="true" rootLevel="1" visibleRowCountMode="Auto" filter="onColumnFilter">
                 <table:extension>
                     <Bar>
                         <contentRight>
@@ -91,12 +91,13 @@
                             <Button icon="sap-icon://collapse-group" press="onCollapseAllPress" />
                             <Button id="B_Excel" busyIndicatorDelay="0" icon="sap-icon://excel-attachment" press="onExport" />
                             <Button id="B_Print" busyIndicatorDelay="0" icon="sap-icon://print" press="onPrint" />
+                            <Button icon="sap-icon://action-settings" press=".onOpenTableSettings" tooltip="테이블 설정"/>
                         </contentRight>
                     </Bar>
                 </table:extension>
                 <table:columns>
                     <!-- 내역 -->
-                    <table:Column hAlign="Center"  width="20rem">
+                    <table:Column hAlign="Center"  width="20rem"  filterProperty="NodeText">
                         <Label design="Bold" text="{i18n>NodeText}" />
                         <table:template>
                             <Text textAlign="Begin" text="{NodeText}" />
@@ -104,21 +105,21 @@
                     </table:Column>
 
                     <!-- G/L 계정 -->
-                    <table:Column hAlign="Left"  width="10rem">
+                    <table:Column hAlign="Left"  width="10rem" filterProperty="GlAccount">
                         <Label design="Bold" text="{i18n>GlAccount}" />
                         <table:template>
                             <Text textAlign="Left" text="{GlAccount}" />
                         </table:template>
                     </table:Column>
                     <!-- G/L 계정 내역-->
-                    <table:Column hAlign="Left" width="20rem">
+                    <table:Column hAlign="Left" width="25rem" filterProperty="GlAccountText">
                         <Label design="Bold" text="{i18n>GlAccountText}" />
                         <table:template>
                             <Text textAlign="Left" text="{GlAccountText}" />
                         </table:template>
                     </table:Column>
                     <!-- 기간 잔액 -->
-                    <table:Column id="COL_PeriodBalance" hAlign="End" width="12rem">
+                    <table:Column id="COL_PeriodBalance" hAlign="End" width="12rem" filterProperty="PeriodBalance">
                         <Label design="Bold" text="{i18n>PeriodBalance}" />
                         <table:template>
                             <HBox justifyContent="End" width="100%">
@@ -143,7 +144,7 @@
                     </table:Column>
 
                     <!-- 비교 기간 잔액 -->
-                    <table:Column id="COL_ComparisonBalance" hAlign="End" width="12rem">
+                    <table:Column id="COL_ComparisonBalance" hAlign="End" width="12rem" filterProperty="ComparisonBalance">
                         <Label design="Bold" text="{i18n>ComparisonBalance}" />
                         <table:template>
                             <HBox justifyContent="End" width="100%">
@@ -168,7 +169,7 @@
                     </table:Column>
 
                     <!-- 절대 차이 -->
-                    <table:Column hAlign="End" width="10rem">
+                    <table:Column hAlign="End" width="10rem" filterProperty="AbsoluteDifference">
                         <Label design="Bold" text="{i18n>AbsoluteDifference}" />
                         <table:template>
                             <Text textAlign="End" text="{
@@ -185,7 +186,7 @@
                     </table:Column>
 
                     <!-- 상대 차이 -->
-                    <table:Column hAlign="End" width="6rem">
+                    <table:Column hAlign="End" width="6rem" filterProperty="RelativeDifference">
                         <Label design="Bold" text="{i18n>RelativeDifference}" />
                         <table:template>
                             <Text textAlign="End" text="{
@@ -199,7 +200,7 @@
                         </table:template>
                     </table:Column>
                     <!-- 단위 -->
-                    <table:Column hAlign="Left"  width="5rem">
+                    <table:Column hAlign="Left"  width="5rem" filterProperty="CompanyCodeCurrency">
                         <Label design="Bold" text="{i18n>CompanyCodeCurrency}" />
                         <table:template>
                             <Text textAlign="Left" text="{CompanyCodeCurrency}" />

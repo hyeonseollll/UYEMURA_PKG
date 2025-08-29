@@ -45,6 +45,7 @@ sap.ui.define([
          * and initial table binding setup.
          */
         onInit: function () {
+            this._colFilters = {};
             // flags & restore info
             this._isClientView = false;     // JSON client mode?
             this._origBindingInfo = null;   // OData restore info
@@ -116,7 +117,7 @@ sap.ui.define([
             if (typeof oTable.attachCollapse === "function") {
                 oTable.attachCollapse(this.onCollapse.bind(this));
                 oTable.attachExpand(this.onExpand.bind(this));
-                this._bindColumns(oTable); // if you had dynamic column binding; keep call
+
             }
 
             // re-highlight on virtual scroll
@@ -148,6 +149,7 @@ sap.ui.define([
             oView = null;
             vVHGL = null;
         },
+
 
         // ========================================================================
         // TOP-LEVEL UI EVENTS (Search / Export / Print / Expand-All / Collapse-All)
@@ -264,7 +266,6 @@ sap.ui.define([
                 if (oBExcel) oBExcel.setBusy(false);
             });
         },
-
         onPrint: async function () {
             const oTable = this.byId(Control.Table.T_Main);
             const oBinding = oTable && oTable.getBinding("rows");
@@ -311,8 +312,6 @@ sap.ui.define([
             w.focus();
             setTimeout(() => { w.print(); /* w.close(); */ }, 200);
         },
-
-
         onExpandAllPress: function () {
             const oTable = this.byId(Control.Table.T_Main);
             if (!oTable) return;
@@ -466,6 +465,8 @@ sap.ui.define([
             this._collapsedNodes.delete(sNodeId);
         },
 
+
+
         // ========================================================================
         // VALUE HELP (GLAccount)
         // ========================================================================
@@ -591,6 +592,79 @@ sap.ui.define([
             this.getView().addDependent(sheet);
             sheet.openBy(oEvent.getSource());
         },
+        // 컨트롤러 멤버로 사용할 캐시
+        // this._colFilters = { <path>: <rawValue>, ... };
+
+        // 누적 컬럼필터 캐시
+        // this._colFilters = { <path>: <rawValue>, ... };
+
+        onColumnFilter: function (oEvent) {
+            const oTable = this.byId("T_Main");
+            const oBinding = oTable && oTable.getBinding("rows");
+            if (!oBinding) return;
+
+            const oColumn = oEvent.getParameter("column");
+            const sValue = (oEvent.getParameter("value") || "").trim();
+            const sPath = oColumn && oColumn.getFilterProperty && oColumn.getFilterProperty();
+            if (!sPath) return;
+
+            // 1) 누적 컬럼필터 갱신
+            this._colFilters = this._colFilters || {};
+            if (sValue) this._colFilters[sPath] = sValue;
+            else delete this._colFilters[sPath];
+
+            // 2) 모든 컬럼필터 생성
+            const aColFilters = Object.entries(this._colFilters)
+                .map(([path, val]) => this._buildFilterForValueWithType(path, val))
+                .flat();
+            // 3) 기본 파라미터 + 테이블 검색어 + 컬럼필터 적용
+            const aBase = this._getTableFilter();
+            const aSearch = this._buildSearchFilters(this._lastTableQuery);
+            oBinding.filter(aBase.concat(aSearch, aColFilters), sap.ui.model.FilterType.Application);
+        },
+
+        _buildFilterForValue: function (sPath, sRaw) {
+            const Filter = sap.ui.model.Filter;
+            const OP = sap.ui.model.FilterOperator;
+            const s = (sRaw || "").trim();
+
+            // 다중값 OR: 1000,2000,3000
+            if (s.includes(",")) {
+                const parts = s.split(",").map(v => v.trim()).filter(Boolean);
+                if (parts.length) return [new Filter({ and: false, filters: parts.map(v => new Filter(sPath, OP.EQ, v)) })];
+            }
+            // 범위: 10..100
+            const m = s.match(/^(-?\d+(?:\.\d+)?)\.\.(-?\d+(?:\.\d+)?)$/);
+            if (m) return [new Filter(sPath, OP.BT, parseFloat(m[1]), parseFloat(m[2]))];
+
+            // 비교: >10, <=0
+            const cmp = s.match(/^(<=|>=|<|>)(-?\d+(?:\.\d+)?)$/);
+            if (cmp) {
+                const map = { ">": OP.GT, "<": OP.LT, ">=": OP.GE, "<=": OP.LE };
+                return [new Filter(sPath, map[cmp[1]], parseFloat(cmp[2]))];
+            }
+
+            // 정확히: =ABC
+            if (s.startsWith("=")) return [new Filter(sPath, OP.EQ, s.slice(1))];
+            // 시작/끝: ^ABC / ABC$
+            if (s.startsWith("^")) return [new Filter(sPath, OP.StartsWith, s.slice(1))];
+            if (s.endsWith("$")) return [new Filter(sPath, OP.EndsWith, s.slice(0, -1))];
+
+            // 기본: Contains
+            return [new Filter(sPath, OP.Contains, s)];
+        },
+
+        // (옵션) 프로그램에서 전체 컬럼필터 초기화하고 싶을 때 호출
+        _resetColumnFilters: function () {
+            this._colFilters = {};
+            const oTable = this.byId("T_Main");
+            const ob = oTable && oTable.getBinding("rows");
+            if (!ob) return;
+            const aBase = this._getTableFilter();
+            const aSearch = this._buildSearchFilters(this._lastTableQuery);
+            ob.filter(aBase.concat(aSearch), sap.ui.model.FilterType.Application);
+        },
+
 
         // ========================================================================
         // TABLE BINDING & ODATA EVENTS
@@ -621,14 +695,20 @@ sap.ui.define([
             });
         },
 
+        // _onTreeTableRequested: function () {
+        //     const oTable = this.getView().byId(Control.Table.T_Main);
+        //     const oBinding = oTable && oTable.getBinding("rows");
+        //     if (!oTable || !oBinding) return
+        //     oTable.setBusy(true);
+        //     // (Optional) access contexts if needed: const aContexts = oBinding.getContexts(0, oBinding.getLength());
+        // },
         _onTreeTableRequested: function () {
-            const oTable = this.getView().byId(Control.Table.T_Main);
+            const oTable = this.byId("T_Main");
             const oBinding = oTable && oTable.getBinding("rows");
             if (!oTable || !oBinding) return;
+            console.log("tree dataRequested", oBinding.aFilters); // 현재 적용 필터 확인용
             oTable.setBusy(true);
-            // (Optional) access contexts if needed: const aContexts = oBinding.getContexts(0, oBinding.getLength());
         },
-
         _onTreeTableReceived: function () {
             const oTable = this.byId(Control.Table.T_Main);
             const oBinding = oTable && oTable.getBinding("rows");
@@ -649,6 +729,7 @@ sap.ui.define([
             }
 
             this._busyUntilFullyExpanded(oTable, { idleMs: 250, stableRepeats: 2, timeoutMs: 15000 });
+
         },
 
         // ComboBox busy feedback (kept as-is)
@@ -1492,6 +1573,47 @@ sap.ui.define([
             const aBase = this._getTableFilter();
             const aSearch = this._buildSearchFilters(this._lastTableQuery);
             oBinding.filter(aBase.concat(aSearch), sap.ui.model.FilterType.Application);
-        }
+        },
+        _buildFilterForValueWithType: function (sPath, sRaw) {
+            const Filter = sap.ui.model.Filter, OP = sap.ui.model.FilterOperator;
+            const s = (sRaw || "").trim();
+
+            // 숫자형 컬럼(서비스에 맞게 필요시 조정)
+            const NUM = new Set(["PeriodBalance", "ComparisonBalance", "AbsoluteDifference", "RelativeDifference"]);
+
+            // 문자열 다중값 OR: a,b,c
+            if (!NUM.has(sPath) && s.includes(",")) {
+                const parts = s.split(",").map(v => v.trim()).filter(Boolean);
+                if (parts.length) {
+                    return [new Filter({ and: false, filters: parts.map(v => new Filter(sPath, OP.EQ, v)) })];
+                }
+            }
+
+            // 숫자 범위: 10..100
+            const m = s.match(/^(-?\d+(?:\.\d+)?)\.\.(-?\d+(?:\.\d+)?)$/);
+            if (m && NUM.has(sPath)) return [new Filter(sPath, OP.BT, parseFloat(m[1]), parseFloat(m[2]))];
+
+            // 숫자 비교: >10, <=0
+            const cmp = s.match(/^(<=|>=|<|>)(-?\d+(?:\.\d+)?)$/);
+            if (cmp && NUM.has(sPath)) {
+                const map = { ">": OP.GT, "<": OP.LT, ">=": OP.GE, "<=": OP.LE };
+                return [new Filter(sPath, map[cmp[1]], parseFloat(cmp[2]))];
+            }
+
+            // 정확히: =값
+            if (s.startsWith("=")) {
+                const v = s.slice(1);
+                return [new Filter(sPath, OP.EQ, NUM.has(sPath) ? Number(v) : v)];
+            }
+
+            // 시작/끝: ^값 / 값$
+            if (!NUM.has(sPath) && s.startsWith("^")) return [new Filter(sPath, OP.StartsWith, s.slice(1))];
+            if (!NUM.has(sPath) && s.endsWith("$")) return [new Filter(sPath, OP.EndsWith, s.slice(0, -1))];
+
+            // 기본
+            return [new Filter(sPath, NUM.has(sPath) ? OP.EQ : OP.Contains, NUM.has(sPath) ? Number(s) : s)];
+        },
+
+
     });
 });
