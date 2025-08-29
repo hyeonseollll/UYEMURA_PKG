@@ -12,10 +12,11 @@ sap.ui.define([
     "sap/m/Label",
     "sap/m/Text",
     "com/gsitm/pkg/co/zgspkgco0060/formatter/formatter",
-    "sap/m/MessageBox"
+    "sap/m/MessageBox",
+    "sap/ui/table/TablePersoController",
 ], function (
     Controller, Model, Filter, FilterOperator, exportLibrary, Spreadsheet,
-    JSONModel, SearchField, Column, Token, Label, Text, formatter, MessageBox
+    JSONModel, SearchField, Column, Token, Label, Text, formatter, MessageBox, TablePersoController
 ) {
     "use strict";
 
@@ -101,31 +102,82 @@ sap.ui.define([
          * onAfterRendering: UI-only tweaks (rowcount, selection, attach table events),
          * dynamic headers, and highlight wiring.
          */
+        // onAfterRendering: function () {
+        //     this._setPeriodHeaders();
+
+        //     const oTable = this.byId(Control.Table.T_Main);
+        //     if (!oTable) return;
+
+        //     // table setup
+        //     oTable.setSelectionMode(sap.ui.table.SelectionMode.Single);
+        //     oTable.setSelectionBehavior(sap.ui.table.SelectionBehavior.Row);
+        //     oTable.setVisibleRowCountMode(sap.ui.table.VisibleRowCountMode.Fixed);
+        //     oTable.setVisibleRowCount(25);
+
+        //     // attach expand/collapse
+        //     if (typeof oTable.attachCollapse === "function") {
+        //         oTable.attachCollapse(this.onCollapse.bind(this));
+        //         oTable.attachExpand(this.onExpand.bind(this));
+
+        //     }
+
+        //     // re-highlight on virtual scroll
+        //     if (!this._hlBound) {
+        //         oTable.attachRowsUpdated(this._refreshRowHighlights.bind(this));
+        //         this._hlBound = true;
+        //     }
+        //     // 첫 렌더 후 한 번 적용
+        //     this._applyGroupRowColors();
+        // },
         onAfterRendering: function () {
             this._setPeriodHeaders();
 
             const oTable = this.byId(Control.Table.T_Main);
             if (!oTable) return;
 
-            // table setup
+            // 기본 테이블 설정
             oTable.setSelectionMode(sap.ui.table.SelectionMode.Single);
             oTable.setSelectionBehavior(sap.ui.table.SelectionBehavior.Row);
             oTable.setVisibleRowCountMode(sap.ui.table.VisibleRowCountMode.Fixed);
             oTable.setVisibleRowCount(25);
 
-            // attach expand/collapse
             if (typeof oTable.attachCollapse === "function") {
                 oTable.attachCollapse(this.onCollapse.bind(this));
                 oTable.attachExpand(this.onExpand.bind(this));
-
             }
 
-            // re-highlight on virtual scroll
+            // ★ 이벤트는 "단 한 번"만 묶습니다.
             if (!this._hlBound) {
-                oTable.attachRowsUpdated(this._refreshRowHighlights.bind(this));
+                // 행 갱신(스크롤/리바운드 등) 때마다: 열 인덱스 맵 갱신 + 하이라이트 재적용
+                oTable.attachRowsUpdated(() => {
+                    this._refreshColumnIndexMap();
+                    this._refreshRowHighlights();
+                });
+
+                // 열 이동 시: 인덱스 맵 즉시 갱신
+                if (typeof oTable.attachColumnMove === "function") {
+                    oTable.attachColumnMove(this._refreshColumnIndexMap.bind(this));
+                }
+
                 this._hlBound = true;
             }
-            // 첫 렌더 후 한 번 적용
+
+            // (선택) 열 드래그 이동 허용
+            if (oTable.getEnableColumnReordering && !oTable.getEnableColumnReordering()) {
+                oTable.setEnableColumnReordering(true);
+            }
+
+            // (선택) 개인화 컨트롤러 1회만 활성화
+            if (typeof TablePersoController === "function" && !this._oTPC) {
+                this._oTPC = new TablePersoController({
+                    table: oTable,
+                    hasGrouping: false,
+                    persoService: this._getLocalPersoService() // ③ 참고
+                }).activate();
+            }
+
+            // 초기 1회 계산/적용
+            this._refreshColumnIndexMap();
             this._applyGroupRowColors();
         },
 
@@ -233,9 +285,28 @@ sap.ui.define([
             }
 
             // 2) 기본 컬럼 정의 가져오기
-            const aCols = this._createColumnConfig();
+            // const aCols = this._createColumnConfig();
 
-            // 3) 기간 라벨 생성해서 '기간 잔액', '비교기간 잔액' 컬럼 라벨 덮어쓰기
+            // // 3) 기간 라벨 생성해서 '기간 잔액', '비교기간 잔액' 컬럼 라벨 덮어쓰기
+            // const priorYear = this._getTokenVal("MI_PriorYear");
+            // const priorFrom = this._getTokenVal("MI_PriorStartMonth");
+            // const priorTo = this._getTokenVal("MI_PriorEndMonth");
+            // const currYear = this._getTokenVal("MI_CurrentYear");
+            // const currFrom = this._getTokenVal("MI_CurrentStartMonth");
+            // const currTo = this._getTokenVal("MI_CurrentEndMonth");
+
+            // const reportLabel = this._buildPeriodLabel(priorYear, priorFrom, priorTo);  // (MM.YYYY-MM.YYYY)
+            // const compareLabel = this._buildPeriodLabel(currYear, currFrom, currTo);
+
+            // const colPB = aCols.find(c => c.property === 'PeriodBalance');
+            // if (colPB) colPB.label = this.i18n.getText("PeriodBalance") + " " + reportLabel;
+
+            // const colCB = aCols.find(c => c.property === 'ComparisonBalance');
+            // if (colCB) colCB.label = this.i18n.getText("ComparisonBalance") + " " + compareLabel;
+            // 2) 기본 컬럼 정의 가져오기 (정적 → 동적)
+            const aCols = this._getVisibleColumnConfigFromTable();
+
+            // 3) 기간 라벨 덮어쓰기 (동일)
             const priorYear = this._getTokenVal("MI_PriorYear");
             const priorFrom = this._getTokenVal("MI_PriorStartMonth");
             const priorTo = this._getTokenVal("MI_PriorEndMonth");
@@ -243,14 +314,15 @@ sap.ui.define([
             const currFrom = this._getTokenVal("MI_CurrentStartMonth");
             const currTo = this._getTokenVal("MI_CurrentEndMonth");
 
-            const reportLabel = this._buildPeriodLabel(priorYear, priorFrom, priorTo);  // (MM.YYYY-MM.YYYY)
+            const reportLabel = this._buildPeriodLabel(priorYear, priorFrom, priorTo);
             const compareLabel = this._buildPeriodLabel(currYear, currFrom, currTo);
 
-            const colPB = aCols.find(c => c.property === 'PeriodBalance');
+            const colPB = aCols.find(c => c.property === "PeriodBalance");
             if (colPB) colPB.label = this.i18n.getText("PeriodBalance") + " " + reportLabel;
 
-            const colCB = aCols.find(c => c.property === 'ComparisonBalance');
+            const colCB = aCols.find(c => c.property === "ComparisonBalance");
             if (colCB) colCB.label = this.i18n.getText("ComparisonBalance") + " " + compareLabel;
+
 
             // 4) 스프레드시트 설정 및 생성
             const oSettings = {
@@ -276,13 +348,13 @@ sap.ui.define([
 
             await this._waitRowsSettled(oTable, 180);
 
-            // ★ 화면 열 비율(%)
-            const percents = this._getScreenColumnPercents();
+
 
             // 데이터/컬럼 메타
             const aRows = this._collectExportRows(oBinding);
-            const aCols = this._createColumnConfig();
-
+            // const aCols = this._createColumnConfig();
+            const aCols = this._getVisibleColumnConfigFromTable();
+            const percents = this._getScreenColumnPercentsForCols(aCols);
             // 라벨
             const priorYear = this._getTokenVal("MI_PriorYear");
             const priorFrom = this._getTokenVal("MI_PriorStartMonth");
@@ -971,40 +1043,78 @@ sap.ui.define([
          * - 숨김 컬럼 제외
          * - DOM 폭 우선(getBoundingClientRect), 없으면 getWidth() 해석(px/rem)
          */
-        _getScreenColumnPercents: function () {
+
+
+        _getScreenColumnPercentsForCols: function (colsMeta) {
             const oTable = this.byId(Control.Table.T_Main);
-            if (!oTable) return [];
+            if (!oTable || !Array.isArray(colsMeta) || !colsMeta.length) {
+                return [];
+            }
 
-            // 실제 데이터 컬럼만 (RowHeader 등 제외, visible만)
-            const ui5Cols = oTable.getColumns().filter(c => c.getVisible());
+            // property 추론 (기존 로직과 동일)
+            const inferProp = (col) => {
+                let prop =
+                    (col.getFilterProperty && col.getFilterProperty()) ||
+                    (col.getSortProperty && col.getSortProperty());
+                if (!prop) {
+                    try {
+                        const t = col.getTemplate && col.getTemplate();
+                        const b = t && (t.getBinding && (t.getBinding("text") || t.getBinding("value") || t.getBinding("number")));
+                        if (b && b.getPath) prop = b.getPath();
+                    } catch (e) { }
+                }
+                if (!prop) {
+                    const id = col.getId && String(col.getId());
+                    const m = id && id.match(/COL_(.+)$/);
+                    if (m) prop = m[1];
+                }
+                return prop;
+            };
 
-            // px 계산
+            // 화면상 실제 px 폭 얻기
             const toPx = (c) => {
-                // 1) DOM 폭 (가장 정확)
                 const el = c.getDomRef && c.getDomRef();
                 if (el && el.getBoundingClientRect) {
                     const w = el.getBoundingClientRect().width;
                     if (w && isFinite(w)) return w;
+                    // 일부 브라우저 대비
+                    const cs = window.getComputedStyle(el);
+                    const ww = cs && parseFloat(cs.width);
+                    if (ww && isFinite(ww)) return ww;
                 }
-                // 2) 선언된 width 해석 (e.g., "20rem", "120px", "auto")
                 const wStr = (c.getWidth && c.getWidth()) || "";
                 if (/^\d+(\.\d+)?px$/.test(wStr)) return parseFloat(wStr);
                 if (/^\d+(\.\d+)?rem$/.test(wStr)) {
                     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize || "16");
                     return parseFloat(wStr) * rem;
                 }
-                // fallback: 균등 분배 가정
-                return 100; // 임의값
+                return 100; // fallback
             };
 
-            const px = ui5Cols.map(toPx);
-            const total = px.reduce((a, b) => a + b, 0) || 1;
+            // 화면의 "보이는 열" → {prop: px} 맵
+            const uiCols = oTable.getColumns().filter(c => c.getVisible && c.getVisible());
+            const pxMap = {};
+            uiCols.forEach(c => {
+                const p = inferProp(c);
+                if (p) pxMap[p] = toPx(c);
+            });
 
-            // %로 환산(소수 1자리)
-            const perc = px.map(w => Math.max(1, Math.round((w / total) * 1000) / 10));
+            // colsMeta 순서에 맞춰 % 배열 산출
+            const total = colsMeta.reduce((s, cm) => s + (pxMap[cm.property] || 0), 0) || 1;
+            const perc = colsMeta.map(cm => {
+                const px = pxMap[cm.property];
+                if (!px) return Math.round((100 / colsMeta.length) * 10) / 10;
+                return Math.max(1, Math.round((px / total) * 1000) / 10);
+            });
+
+            // 반올림 누적으로 100%가 어긋날 수 있으니 마지막 칸 보정
+            const sum = perc.reduce((a, b) => a + b, 0);
+            const diff = Math.round((100 - sum) * 10) / 10;
+            if (Math.abs(diff) >= 0.1) perc[perc.length - 1] = Math.max(1, Math.round((perc[perc.length - 1] + diff) * 10) / 10);
 
             return perc;
         },
+
 
 
         _escapeHTML: function (s) {
@@ -1090,6 +1200,46 @@ sap.ui.define([
         //     }
         // },
 
+        // _applyGroupRowColors: function () {
+        //     const oTable = this.byId(Control.Table.T_Main);
+        //     const oBinding = oTable && oTable.getBinding("rows");
+        //     if (!oTable || !oBinding) return;
+
+        //     const first = oTable.getFirstVisibleRow();
+        //     const aRows = oTable.getRows();
+        //     const targetIdx = [3, 4, 5, 6, 7]; // 하이라이트 컬럼 인덱스
+
+        //     for (let i = 0; i < aRows.length; i++) {
+        //         const oRow = aRows[i];
+        //         const oCtx = oBinding.getContextByIndex(first + i);
+        //         const o = oCtx && oCtx.getObject && oCtx.getObject();
+        //         const cells = oRow.getCells ? oRow.getCells() : [];
+
+        //         // 1) 기존 하이라이트 제거 (컨트롤 + TD 둘 다)
+        //         targetIdx.forEach(ix => {
+        //             const c = cells[ix];
+        //             if (!c) return;
+        //             c.removeStyleClass("sumCellYellow"); // 컨트롤
+        //             const $td = c.$().closest("td");
+        //             $td.removeClass("sumCellYellow");    // TD
+        //         });
+
+        //         if (!o) continue;
+        //         if (this._isBSorPLRow(o)) continue;
+
+        //         const isHeaderNode = !o.GlAccount;
+        //         if (!isHeaderNode) continue;
+
+        //         // 2) 하이라이트 추가 (컨트롤 + TD 둘 다)
+        //         targetIdx.forEach(ix => {
+        //             const c = cells[ix];
+        //             if (!c) return;
+        //             c.addStyleClass("sumCellYellow");          // 컨트롤
+        //             const $td = c.$().closest("td");
+        //             $td.addClass("sumCellYellow");             // TD
+        //         });
+        //     }
+        // },
         _applyGroupRowColors: function () {
             const oTable = this.byId(Control.Table.T_Main);
             const oBinding = oTable && oTable.getBinding("rows");
@@ -1097,7 +1247,16 @@ sap.ui.define([
 
             const first = oTable.getFirstVisibleRow();
             const aRows = oTable.getRows();
-            const targetIdx = [3, 4, 5, 6, 7]; // 하이라이트 컬럼 인덱스
+
+            // 현재 열 순서에서 하이라이트 대상 컬럼 인덱스 동적 계산
+            const m = this._colIdxMap || {};
+            const targetIdx = [
+                "PeriodBalance",
+                "ComparisonBalance",
+                "AbsoluteDifference",
+                "RelativeDifference",
+                "CompanyCodeCurrency"
+            ].map(k => m[k]).filter(i => i !== undefined);
 
             for (let i = 0; i < aRows.length; i++) {
                 const oRow = aRows[i];
@@ -1105,28 +1264,26 @@ sap.ui.define([
                 const o = oCtx && oCtx.getObject && oCtx.getObject();
                 const cells = oRow.getCells ? oRow.getCells() : [];
 
-                // 1) 기존 하이라이트 제거 (컨트롤 + TD 둘 다)
+                // 1) 기존 하이라이트 제거 (컨트롤 + TD)
                 targetIdx.forEach(ix => {
                     const c = cells[ix];
                     if (!c) return;
-                    c.removeStyleClass("sumCellYellow"); // 컨트롤
+                    c.removeStyleClass("sumCellYellow");
                     const $td = c.$().closest("td");
-                    $td.removeClass("sumCellYellow");    // TD
+                    $td.removeClass("sumCellYellow");
                 });
 
                 if (!o) continue;
-                if (this._isBSorPLRow(o)) continue;
+                if (this._isBSorPLRow(o)) continue; // BS/PL 카테고리는 제외
+                if (o.GlAccount) continue;          // GL 계정이 있는 '상세행'은 제외 → 상위(집계)행만 칠함
 
-                const isHeaderNode = !o.GlAccount;
-                if (!isHeaderNode) continue;
-
-                // 2) 하이라이트 추가 (컨트롤 + TD 둘 다)
+                // 2) 하이라이트 추가
                 targetIdx.forEach(ix => {
                     const c = cells[ix];
                     if (!c) return;
-                    c.addStyleClass("sumCellYellow");          // 컨트롤
+                    c.addStyleClass("sumCellYellow");
                     const $td = c.$().closest("td");
-                    $td.addClass("sumCellYellow");             // TD
+                    $td.addClass("sumCellYellow");
                 });
             }
         },
@@ -1176,6 +1333,39 @@ sap.ui.define([
                 }
             }
             this._applyGroupRowColors();
+        },
+        _refreshColumnIndexMap: function () {
+            const oTable = this.byId(Control.Table.T_Main);
+            if (!oTable) { this._colIdxMap = {}; return; }
+
+            const cols = oTable.getColumns().filter(c => c.getVisible && c.getVisible());
+            const map = {};
+
+            cols.forEach((c, i) => {
+                // 1순위: filterProperty, 2순위: sortProperty
+                let prop = (c.getFilterProperty && c.getFilterProperty()) ||
+                    (c.getSortProperty && c.getSortProperty());
+
+                // 3순위: 템플릿 바인딩에서 path 추정 (Text/Link/Number 등의 text|value|number)
+                if (!prop) {
+                    try {
+                        const t = c.getTemplate && c.getTemplate();
+                        const b = t && (t.getBinding && (t.getBinding("text") || t.getBinding("value") || t.getBinding("number")));
+                        if (b && b.getPath) prop = b.getPath();
+                    } catch (e) { /* noop */ }
+                }
+
+                // 4순위: ID가 COL_<Prop> 형태면 거기서 추정
+                if (!prop) {
+                    const id = c.getId && String(c.getId());
+                    const m = id && id.match(/COL_(.+)$/);
+                    if (m) prop = m[1];
+                }
+
+                if (prop) map[prop] = i;
+            });
+
+            this._colIdxMap = map; // 예: { PeriodBalance: 4, ComparisonBalance: 5, ... }
         },
 
         _getSelectedSubtreeRange: function () {
@@ -1614,6 +1804,74 @@ sap.ui.define([
             return [new Filter(sPath, NUM.has(sPath) ? OP.EQ : OP.Contains, NUM.has(sPath) ? Number(s) : s)];
         },
 
+        _getLocalPersoService: function () {
+            const KEY = "zgspkgco0060.T_Main.perso";
+            return {
+                getPersData: () => Promise.resolve(JSON.parse(localStorage.getItem(KEY) || "{}")),
+                setPersData: (o) => { localStorage.setItem(KEY, JSON.stringify(o || {})); return Promise.resolve(); },
+                delPersData: () => { localStorage.removeItem(KEY); return Promise.resolve(); }
+            };
+        },
+        onOpenPersonalize: function () {
+            if (this._oTPC) this._oTPC.openDialog();
+        },
+
+        onResetPersonalize: function () {
+            if (!this._oTPC) return;
+            this._oTPC.getPersoService().delPersData().then(() => {
+                this._oTPC.refresh();
+                this._refreshColumnIndexMap();
+                this._applyGroupRowColors();
+                sap.m.MessageToast.show(this.i18n.getText("toast.reset") || "개인화가 초기화되었습니다.");
+            });
+        },
+        _getVisibleColumnConfigFromTable: function () {
+            const oTable = this.byId(Control.Table.T_Main);
+            if (!oTable) return this._createColumnConfig(); // fallback
+
+            const typeOf = (prop) => {
+                switch (prop) {
+                    case "PeriodBalance":
+                    case "ComparisonBalance":
+                    case "AbsoluteDifference":
+                    case "RelativeDifference":
+                        return EdmType.Currency;
+                    default:
+                        return EdmType.String;
+                }
+            };
+
+            const inferProp = (col) => {
+                let prop =
+                    (col.getFilterProperty && col.getFilterProperty()) ||
+                    (col.getSortProperty && col.getSortProperty());
+                if (!prop) {
+                    try {
+                        const t = col.getTemplate && col.getTemplate();
+                        const b = t && (t.getBinding && (t.getBinding("text") || t.getBinding("value") || t.getBinding("number")));
+                        if (b && b.getPath) prop = b.getPath();
+                    } catch (e) { }
+                }
+                if (!prop) {
+                    const id = col.getId && String(col.getId());
+                    const m = id && id.match(/COL_(.+)$/);
+                    if (m) prop = m[1];
+                }
+                return prop;
+            };
+
+            // 현재 보이는 열만, 현재 순서대로
+            return oTable.getColumns()
+                .filter(c => c.getVisible && c.getVisible())
+                .map(c => {
+                    const prop = inferProp(c);
+                    if (!prop) return null; // 바인딩 없는 기술열이면 제외
+                    const labelCtrl = c.getLabel && c.getLabel();
+                    const label = (labelCtrl && labelCtrl.getText && labelCtrl.getText()) || prop;
+                    return { label, type: typeOf(prop), property: prop };
+                })
+                .filter(Boolean);
+        },
 
     });
 });

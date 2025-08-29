@@ -33,6 +33,20 @@
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
+/* 테이블 런타임 하이라이트 */
+.sumCellYellow {
+  background-color: #fff7bf !important; /* 밝은 노랑 */
+}
+
+/* 검색 결과 줄 표시 (이미 쓰고 있으면 유지) */
+.myHitRow .sapUiTableCell { background-color: #f0f6ff; }
+.myHitActive .sapUiTableCell { background-color: #cfe5ff; }
+
+
+/* 검색 결과 줄 표시 (이미 쓰고 있으면 유지) */
+.myHitRow .sapUiTableCell { background-color: #f0f6ff; }
+.myHitActive .sapUiTableCell { background-color: #cfe5ff; }
+
 
 /* 기본 하이라이트 */
 .sumCellYellow,

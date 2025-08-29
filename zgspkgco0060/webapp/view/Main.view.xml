@@ -91,7 +91,6 @@
                             <Button icon="sap-icon://collapse-group" press="onCollapseAllPress" />
                             <Button id="B_Excel" busyIndicatorDelay="0" icon="sap-icon://excel-attachment" press="onExport" />
                             <Button id="B_Print" busyIndicatorDelay="0" icon="sap-icon://print" press="onPrint" />
-                            <Button icon="sap-icon://action-settings" press=".onOpenTableSettings" tooltip="테이블 설정"/>
                         </contentRight>
                     </Bar>
                 </table:extension>
@@ -119,7 +118,7 @@
                         </table:template>
                     </table:Column>
                     <!-- 기간 잔액 -->
-                    <table:Column id="COL_PeriodBalance" hAlign="End" width="12rem" filterProperty="PeriodBalance">
+                    <table:Column id="COL_PeriodBalance" hAlign="End" width="14rem">
                         <Label design="Bold" text="{i18n>PeriodBalance}" />
                         <table:template>
                             <HBox justifyContent="End" width="100%">
@@ -144,7 +143,7 @@
                     </table:Column>
 
                     <!-- 비교 기간 잔액 -->
-                    <table:Column id="COL_ComparisonBalance" hAlign="End" width="12rem" filterProperty="ComparisonBalance">
+                    <table:Column id="COL_ComparisonBalance" hAlign="End" width="14rem">
                         <Label design="Bold" text="{i18n>ComparisonBalance}" />
                         <table:template>
                             <HBox justifyContent="End" width="100%">
@@ -169,7 +168,7 @@
                     </table:Column>
 
                     <!-- 절대 차이 -->
-                    <table:Column hAlign="End" width="10rem" filterProperty="AbsoluteDifference">
+                    <table:Column id="COL_AbsoluteDifference" hAlign="End" width="10rem" >
                         <Label design="Bold" text="{i18n>AbsoluteDifference}" />
                         <table:template>
                             <Text textAlign="End" text="{
@@ -186,7 +185,7 @@
                     </table:Column>
 
                     <!-- 상대 차이 -->
-                    <table:Column hAlign="End" width="6rem" filterProperty="RelativeDifference">
+                    <table:Column  id="COL_RelativeDifference" hAlign="End" width="6rem" >
                         <Label design="Bold" text="{i18n>RelativeDifference}" />
                         <table:template>
                             <Text textAlign="End" text="{
@@ -200,7 +199,7 @@
                         </table:template>
                     </table:Column>
                     <!-- 단위 -->
-                    <table:Column hAlign="Left"  width="5rem" filterProperty="CompanyCodeCurrency">
+                    <table:Column  id="COL_CompanyCodeCurrency" hAlign="Left"  width="5rem" >
                         <Label design="Bold" text="{i18n>CompanyCodeCurrency}" />
                         <table:template>
                             <Text textAlign="Left" text="{CompanyCodeCurrency}" />
