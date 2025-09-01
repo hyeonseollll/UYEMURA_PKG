@@ -345,10 +345,7 @@ sap.ui.define([
                 sap.m.MessageToast.show(this.i18n.getText("toast.runSearchFirst") || "먼저 조회를 실행하세요.");
                 return;
             }
-
             await this._waitRowsSettled(oTable, 180);
-
-
 
             // 데이터/컬럼 메타
             const aRows = this._collectExportRows(oBinding);
@@ -536,8 +533,6 @@ sap.ui.define([
             this._collapsedNodes = this._collapsedNodes || new Set();
             this._collapsedNodes.delete(sNodeId);
         },
-
-
 
         // ========================================================================
         // VALUE HELP (GLAccount)
@@ -766,7 +761,6 @@ sap.ui.define([
                 }
             });
         },
-
         // _onTreeTableRequested: function () {
         //     const oTable = this.getView().byId(Control.Table.T_Main);
         //     const oBinding = oTable && oTable.getBinding("rows");
@@ -1115,8 +1109,6 @@ sap.ui.define([
             return perc;
         },
 
-
-
         _escapeHTML: function (s) {
             return String(s || "")
                 .replace(/&/g, "&amp;")
@@ -1435,8 +1427,6 @@ sap.ui.define([
             this._searchState.hits = hits;
             this._searchState.pos = -1;
         },
-
-
 
         _normStr: function (v) { return String(v == null ? "" : v).toLowerCase(); },
         _tokenize: function (v) { return this._normStr(v).split(/[^0-9a-z\uac00-\ud7a3_]+/g).filter(Boolean); },
@@ -1872,6 +1862,5 @@ sap.ui.define([
                 })
                 .filter(Boolean);
         },
-
     });
 });

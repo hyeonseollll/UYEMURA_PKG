@@ -96,7 +96,7 @@
                 </table:extension>
                 <table:columns>
                     <!-- 내역 -->
-                    <table:Column hAlign="Center"  width="20rem"  filterProperty="NodeText">
+                    <table:Column hAlign="Center" width="20rem" filterProperty="NodeText">
                         <Label design="Bold" text="{i18n>NodeText}" />
                         <table:template>
                             <Text textAlign="Begin" text="{NodeText}" />
@@ -104,7 +104,7 @@
                     </table:Column>
 
                     <!-- G/L 계정 -->
-                    <table:Column hAlign="Left"  width="10rem" filterProperty="GlAccount">
+                    <table:Column hAlign="Left" width="10rem" filterProperty="GlAccount">
                         <Label design="Bold" text="{i18n>GlAccount}" />
                         <table:template>
                             <Text textAlign="Left" text="{GlAccount}" />
@@ -168,7 +168,7 @@
                     </table:Column>
 
                     <!-- 절대 차이 -->
-                    <table:Column id="COL_AbsoluteDifference" hAlign="End" width="10rem" >
+                    <table:Column id="COL_AbsoluteDifference" hAlign="End" width="12rem">
                         <Label design="Bold" text="{i18n>AbsoluteDifference}" />
                         <table:template>
                             <Text textAlign="End" text="{
@@ -185,7 +185,7 @@
                     </table:Column>
 
                     <!-- 상대 차이 -->
-                    <table:Column  id="COL_RelativeDifference" hAlign="End" width="6rem" >
+                    <table:Column id="COL_RelativeDifference" hAlign="End" width="6rem">
                         <Label design="Bold" text="{i18n>RelativeDifference}" />
                         <table:template>
                             <Text textAlign="End" text="{
@@ -199,7 +199,7 @@
                         </table:template>
                     </table:Column>
                     <!-- 단위 -->
-                    <table:Column  id="COL_CompanyCodeCurrency" hAlign="Left"  width="5rem" >
+                    <table:Column id="COL_CompanyCodeCurrency" hAlign="Left" width="5rem">
                         <Label design="Bold" text="{i18n>CompanyCodeCurrency}" />
                         <table:template>
                             <Text textAlign="Left" text="{CompanyCodeCurrency}" />
