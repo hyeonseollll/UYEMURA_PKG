@@ -14,9 +14,10 @@ sap.ui.define([
     "com/gsitm/pkg/co/zgspkgco0060/formatter/formatter",
     "sap/m/MessageBox",
     "sap/ui/table/TablePersoController",
+    "sap/ui/model/FilterType",
 ], function (
     Controller, Model, Filter, FilterOperator, exportLibrary, Spreadsheet,
-    JSONModel, SearchField, Column, Token, Label, Text, formatter, MessageBox, TablePersoController
+    JSONModel, SearchField, Column, Token, Label, Text, formatter, MessageBox, TablePersoController, FilterType
 ) {
     "use strict";
 
@@ -409,6 +410,36 @@ sap.ui.define([
                 } catch (e) { /*noop*/ }
             }
             this._busyUntilFullyExpanded(oTable, { idleMs: 250, stableRepeats: 2, timeoutMs: 15000 });
+        },
+
+        onMenuFilter: function (oEvent) {
+            let oList = this.byId("L_GLaccountFilterList");
+            //let oList = this.byId("L_GLaccountFilterList");
+            if (oList.getSelectedItems().length > 0) {
+
+                let aFilter = oList.getSelectedItems().map(function (oSeleted) {
+                    return new Filter({
+                        path: 'GlAccountText', operator: FilterOperator.Contains, value1: oSeleted.getTitle()
+                    })
+                })
+
+
+                let oFilter = new Filter({
+                    filters: aFilter,
+                    and: false
+                })
+
+                let oFilterFin = new Filter({
+                    filters: [oFilter, new Filter({
+                        path: 'HierarchyLevel', operator: 'EQ', value1: '6'
+                    })],
+                    and: true
+                })
+
+                this.byId(Control.Table.T_Main).getBinding("rows").filter(oFilterFin, FilterType.Application);
+            } else {
+                this.byId(Control.Table.T_Main).getBinding("rows").filter(null, FilterType.Application);
+            }
         },
 
         // ========================================================================

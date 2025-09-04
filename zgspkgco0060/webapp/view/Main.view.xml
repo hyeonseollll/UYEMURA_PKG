@@ -6,7 +6,8 @@
     xmlns:l="sap.ui.layout"
     xmlns:f="sap.f"
     xmlns:fb="sap.ui.comp.filterbar"
-    xmlns:svm="sap.ui.comp.smartvariants">
+    xmlns:svm="sap.ui.comp.smartvariants"
+    xmlns:columnmenu="sap.m.table.columnmenu">
     <f:DynamicPage headerExpanded="{/headerExpanded}">
         <f:header>
             <f:DynamicPageHeader>
@@ -111,7 +112,8 @@
                         </table:template>
                     </table:Column>
                     <!-- G/L 계정 내역-->
-                    <table:Column hAlign="Left" width="25rem" filterProperty="GlAccountText">
+                    <table:Column hAlign="Left" width="25rem"
+                        headerMenu="M_GlAccountText">
                         <Label design="Bold" text="{i18n>GlAccountText}" />
                         <table:template>
                             <Text textAlign="Left" text="{GlAccountText}" />
@@ -209,4 +211,15 @@
             </table:TreeTable>
         </f:content>
     </f:DynamicPage>
+    <columnmenu:Menu id="M_GlAccountText">
+        <columnmenu:items>
+            <columnmenu:Item confirm="onMenuFilter" showResetButton="false" showCancelButton="false" label="filter">
+                <VBox >
+                    <List id="L_GLaccountFilterList" mode="MultiSelect" multiSelectMode="Default">
+                        <StandardListItem title="현금" />
+                    </List>
+                </VBox>
+            </columnmenu:Item>
+        </columnmenu:items>
+    </columnmenu:Menu>
 </mvc:View>
