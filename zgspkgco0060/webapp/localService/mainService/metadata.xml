@@ -86,6 +86,13 @@
                 <Property Name="GLAccountName" Type="Edm.String" MaxLength="20" sap:label="G/L 계정 이름"/>
                 <Property Name="GLAccountLongName" Type="Edm.String" MaxLength="50" sap:label="GL 계정의 긴 이름" sap:quickinfo="G/L 계정의 긴 이름"/>
             </EntityType>
+            <EntityType Name="F_GLAccount_VHType" sap:label="노드 GL Value Help" sap:content-version="1">
+                <Key>
+                    <PropertyRef Name="GLAccount"/>
+                </Key>
+                <Property Name="GLAccount" Type="Edm.String" Nullable="false" MaxLength="10" sap:display-format="UpperCase" sap:label="G/L 계정" sap:quickinfo="G/L 계정 번호"/>
+                <Property Name="GLAccountLongName" Type="Edm.String" MaxLength="50" sap:label="GL 계정의 긴 이름" sap:quickinfo="G/L 계정의 긴 이름"/>
+            </EntityType>
             <EntityType Name="SAP__Currency" sap:content-version="1">
                 <Key>
                     <PropertyRef Name="CurrencyCode"/>
@@ -344,6 +351,7 @@
             <EntityContainer Name="cds_zsd_financialstatements_Entities" m:IsDefaultEntityContainer="true" sap:message-scope-supported="true" sap:supported-formats="atom json xlsx pdf">
                 <EntitySet Name="FinancialStatements" EntityType="cds_zsd_financialstatements.FinancialStatementsType" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1"/>
                 <EntitySet Name="GLAccount_VH" EntityType="cds_zsd_financialstatements.GLAccount_VHType" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1"/>
+                <EntitySet Name="F_GLAccount_VH" EntityType="cds_zsd_financialstatements.F_GLAccount_VHType" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1"/>
                 <EntitySet Name="SAP__FormatSet" EntityType="cds_zsd_financialstatements.SAP__Format" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
                 <EntitySet Name="SAP__PDFStandardSet" EntityType="cds_zsd_financialstatements.SAP__PDFStandard" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
                 <EntitySet Name="SAP__TableColumnsSet" EntityType="cds_zsd_financialstatements.SAP__TableColumns" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
@@ -397,6 +405,23 @@
             <Annotation Term="Core.SchemaVersion" String="1.0.0" xmlns="http://docs.oasis-open.org/odata/ns/edm"/>
             <Annotations Target="cds_zsd_financialstatements.cds_zsd_financialstatements_Entities" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="Common.ApplyMultiUnitBehaviorForSortingAndFiltering" Bool="true"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_financialstatements.cds_zsd_financialstatements_Entities/F_GLAccount_VH" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+                <Annotation Term="Capabilities.DeleteRestrictions">
+                    <Record>
+                        <PropertyValue Property="Deletable" Bool="false"/>
+                    </Record>
+                </Annotation>
+                <Annotation Term="Capabilities.InsertRestrictions">
+                    <Record>
+                        <PropertyValue Property="Insertable" Bool="false"/>
+                    </Record>
+                </Annotation>
+                <Annotation Term="Capabilities.UpdateRestrictions">
+                    <Record>
+                        <PropertyValue Property="Updatable" Bool="false"/>
+                    </Record>
+                </Annotation>
             </Annotations>
             <Annotations Target="cds_zsd_financialstatements.cds_zsd_financialstatements_Entities/FinancialStatements" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="Capabilities.DeleteRestrictions">
@@ -508,6 +533,9 @@
             </Annotations>
             <Annotations Target="cds_zsd_financialstatements.GLAccount_VHType/ChartOfAccounts" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="SAP__common.DocumentationRef" String="urn:sap-com:documentation:key?=type=DE&amp;id=KTOPL&amp;origin=PZE_100"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_financialstatements.F_GLAccount_VHType/GLAccount" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+                <Annotation Term="SAP__common.DocumentationRef" String="urn:sap-com:documentation:key?=type=DE&amp;id=SAKNR&amp;origin=PZE_100"/>
             </Annotations>
             <Annotations Target="cds_zsd_financialstatements.GLAccount_VHType/Language" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="SAP__common.DocumentationRef" String="urn:sap-com:documentation:key?=type=DE&amp;id=SPRAS&amp;origin=PZE_100"/>

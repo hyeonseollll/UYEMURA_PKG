@@ -87,6 +87,13 @@
           "bundleName": "com.gsitm.pkg.co.zgspkgco0060.i18n.i18n"
         }
       },
+      "F_GLAccount_VH": {
+        "dataSource": "mainService",
+        "preload": true,
+        "settings": {
+          "defaultBindingMode": "TwoWay"
+        }
+      },
       "": {
         "dataSource": "mainService",
         "preload": true,
