@@ -218,11 +218,11 @@
     <!-- GlAccount 필터 메뉴 -->
     <columnmenu:Menu id="M_GlAccount" beforeOpen=".onGlAccountMenuBeforeOpen">
         <columnmenu:items>
-            <columnmenu:Item label="filter" confirm=".onGlAccountMenuConfirm" cancel=".onGlAccountMenuCancel" reset=".onGlAccountMenuReset" showResetButton="true" showCancelButton="true">
+            <columnmenu:Item label="filter" confirm=".onGlAccountMenuConfirm" cancel=".onGlAccountMenuCancel" reset=".onGlAccountMenuReset" showResetButton="false" showCancelButton="true">
                 <VBox width="100%">
                     <!-- 검색 필드 -->
                     <SearchField id="SF_GlAccount" width="100%" liveChange=".onColumnMenuSearch" placeholder="G/L 계정 검색"/>
-
+                    <CheckBox id="CB_GlAccountSelectAll" text="전체 선택" select=".onGlAccountToggleAll"/>
                     <!-- 항목 목록 -->
                     <List id="L_GlAccount" mode="MultiSelect" includeItemInSelection="true" selectionChange=".onGlAccountSelectionChange" width="100%" height="300px">
                         <StandardListItem title="{GLALL>GLAccount}" description="{GLALL>GLAccountLongName}"/>
@@ -252,25 +252,27 @@
     <!-- GlAccountText 필터 메뉴 -->
     <columnmenu:Menu id="M_GlAccountText" beforeOpen=".onColumnMenuBeforeOpen">
         <columnmenu:items>
-            <columnmenu:Item label="filter" confirm=".onColumnMenuConfirm" cancel=".onColumnMenuCancel" reset=".onGlAccountTextMenuReset" showResetButton="true" showCancelButton="true">
+            <columnmenu:Item label="filter" confirm=".onColumnMenuConfirm" cancel=".onColumnMenuCancel" reset=".onGlAccountTextMenuReset" showResetButton="false" showCancelButton="true">
+
                 <VBox width="100%">
-                    <SearchField id="SF_GlAccountText" width="100%" liveChange=".onColumnMenuSearch"/>
+                    <SearchField id="SF_GlAccountText" width="100%" liveChange=".onColumnMenuSearch" placeholder="G/L 내역 검색"/>
+
+                    <!-- 전체 선택 체크박스 -->
+                    <HBox width="100%" class="sapUiTinyMarginBottom">
+                        <CheckBox id="CB_GlAccountTextSelectAll" text="전체 선택" select=".onGlAccountTextToggleAll"/>
+                    </HBox>
 
                     <!-- 항목 목록 -->
                     <List id="L_GlAccountText" mode="MultiSelect" includeItemInSelection="true" selectionChange=".onGlAccountTextSelectionChange" width="100%" height="300px">
                         <StandardListItem title="{GLALL>GLAccountLongName}" description="{GLALL>GLAccount}"/>
                     </List>
 
-                    <!-- 선택된 항목 표시 -->
+                    <!-- 선택된 항목 표시(기존) -->
                     <VBox width="100%" class="sapUiMediumMarginTop">
                         <Label design="Bold" text="{
-    parts: [
-      { path: 'i18n>selectedItems' },
-      { path: 'GLALL>/selectedTextTokens' }
-    ],
-    formatter: '.formatSelectedItems'
-  }"/>
-
+              parts: [{ path: 'i18n>selectedItems' }, { path: 'GLALL>/selectedTextTokens' }],
+              formatter: '.formatSelectedItems'
+            }"/>
                         <MultiInput id="MI_GlAccountTextSelected" width="100%" editable="false" showValueHelp="false" tokenUpdate=".onGlAccountTextTokenUpdate" tokens="{GLALL>/selectedTextTokens}">
                             <tokens>
                                 <Token key="{GLALL>key}" text="{GLALL>text}"/>
@@ -278,8 +280,10 @@
                         </MultiInput>
                     </VBox>
                 </VBox>
+
             </columnmenu:Item>
         </columnmenu:items>
     </columnmenu:Menu>
+
 
 </mvc:View>
