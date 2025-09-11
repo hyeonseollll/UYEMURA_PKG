@@ -13,11 +13,10 @@ sap.ui.define([
     "sap/m/Text",
     "com/gsitm/pkg/co/zgspkgco0060/formatter/formatter",
     "sap/m/MessageBox",
-    "sap/ui/table/TablePersoController",
     "sap/ui/model/FilterType",
 ], function (
     Controller, Model, Filter, FilterOperator, exportLibrary, Spreadsheet,
-    JSONModel, SearchField, Column, Token, Label, Text, formatter, MessageBox, TablePersoController, FilterType
+    JSONModel, SearchField, Column, Token, Label, Text, formatter, MessageBox, FilterType
 ) {
     "use strict";
 
@@ -54,6 +53,10 @@ sap.ui.define([
          * and initial table binding setup.
          */
         onInit: function () {
+            this._glSelKeys = new Set();
+            this._glTextSelKeys = new Set();
+            this._glSel = new Set();   // ★ GL 선택 상태(계정코드) 단일 소스
+            this._glIndex = {};
             this._colFilters = {};
             this._expandAllAfterBind = false;
             // flags & restore info
@@ -62,6 +65,7 @@ sap.ui.define([
             this._bInitialExpandDone = false;
             this._hlBound = false;          // rowsUpdated listener bound?
             this._customParams = {};
+            this._colSel = { GlAccount: [], GlAccountText: [] };
             // i18n
             this.i18n = this.getOwnerComponent().getModel("i18n").getResourceBundle();
 
@@ -111,11 +115,21 @@ sap.ui.define([
             this._maxExpandLevel = this._getVisibleMaxLevel();
             this._curExpandLevel = this._maxExpandLevel; // 전체 펼침 상태로 시작
             const oVH = this.getOwnerComponent().getModel("F_GLAccount_VH");
+            oVH.read("/F_GLAccount_VH", {
+                success: function (oData) {
+                    console.log("F_GLAccount_VH 전체 데이터", oData.results);
+                },
+                error: function (oError) {
+                    console.error("데이터 읽기 실패", oError);
+                }
+            });
+
             if (!oVH) {
                 jQuery.sap.log.error("F_GLAccount_VH model not found on view");
             } else {
                 this.getView().setModel(oVH, "F_GLAccount_VH"); // 보수적으로 뷰에도 보장
             }
+
         },
 
         onAfterRendering: function () {
@@ -174,16 +188,6 @@ sap.ui.define([
             if (oTable.getEnableColumnReordering && !oTable.getEnableColumnReordering()) {
                 oTable.setEnableColumnReordering(true);
             }
-
-            // (선택) 개인화 컨트롤러 1회만 활성화
-            if (typeof TablePersoController === "function" && !this._oTPC) {
-                this._oTPC = new TablePersoController({
-                    table: oTable,
-                    hasGrouping: false,
-                    persoService: this._getLocalPersoService() // ③ 참고
-                }).activate();
-            }
-            this._oTPC.attachAfterPersonalization(this._pinPrimaryColumn.bind(this));
             // 초기 1회 계산/적용
             this._refreshColumnIndexMap();
             this._applyGroupRowColors();
@@ -361,7 +365,7 @@ sap.ui.define([
                 ],
                 cols: aCols,
                 rows: aRows,
-                colPercents: percents  // ★ 전달
+                colPercents: percents
             });
 
             const w = window.open("", "_blank");
@@ -537,143 +541,117 @@ sap.ui.define([
         // ========================================================================
         // GL ACCOUNT FILTER FUNCTIONS (Updated)
         // ========================================================================
+
+        // 완전 교체본: G/L 계정 메뉴 오픈 준비
         onGlAccountMenuBeforeOpen: async function () {
+            const oMenu = this.byId("M_GlAccount");
+            const oList = this.byId("L_GlAccount");
+            if (!oMenu || !oList) return;
+
             try {
-                console.log("Starting GlAccount data load...");
+                // 데이터 준비 (캐시 → oGLAccount → OData → 테스트)
+                if (!Array.isArray(this._glAllCache) || !this._glAllCache.length) {
+                    let data = [];
+                    const oGLModel = this.getView().getModel("oGLAccount");
+                    if (Array.isArray(oGLModel?.getData())) data = oGLModel.getData();
 
-                let data = [];
-
-                // 1. 기존 oGLAccount 모델에서 데이터 가져오기 (우선순위)
-                const oGLModel = this.getView().getModel("oGLAccount");
-                if (oGLModel) {
-                    const glData = oGLModel.getData();
-
-                    if (Array.isArray(glData) && glData.length > 0) {
-                        data = glData;
-                        console.log("Using oGLAccount model data:", data.length);
+                    if (!data.length) {
+                        try { data = await this._loadGLAll(); } catch (e) { /* fallback */ }
                     }
-                }
-
-                // 2. oGLAccount에 데이터가 없으면 OData에서 로드
-                if (data.length === 0) {
-                    try {
-                        data = await this._loadGLAll();
-                    } catch (error) {
-                        console.warn("OData load failed:", error);
+                    if (!data.length && typeof this._getTestGLAccountData === "function") {
+                        data = this._getTestGLAccountData();
                     }
+
+                    // 정규화 + 중복 제거
+                    const normalized = (data || []).map(it => ({
+                        GLAccount: it.GLAccount || it.GlAccount || it.glAccount || it.account || "",
+                        GLAccountLongName: it.GLAccountLongName || it.GlAccountLongName || it.glAccountLongName || it.accountName || it.name || ""
+                    })).filter(it => it.GLAccount && it.GLAccountLongName);
+
+                    this._glAllCache = this._removeDuplicates(normalized, "GLAccount");
                 }
 
-                // 3. 여전히 데이터가 없으면 테스트 데이터 사용
-                if (data.length === 0) {
-                    data = this._getTestGLAccountData();
+                // 모델 세팅(리스트에도 확실히 붙여줌)
+                let jm = oMenu.getModel("GLALL");
+                if (!jm) {
+                    jm = new sap.ui.model.json.JSONModel({ items: this._glAllCache });
+                    oMenu.setModel(jm, "GLALL");
+                    oList.setModel(jm, "GLALL"); // ✅ 안전하게 리스트에도
+                } else {
+                    jm.setProperty("/items", this._glAllCache);
                 }
 
-                const oMenu = this.byId("M_GlAccount");
-                const oList = this.byId("L_GlAccount");
-
-                if (!oMenu || !oList) {
-                    console.error("Menu or List not found");
-                    return;
+                // 최초 한 번만 바인딩, 이후엔 refresh
+                if (!this._glAccountListBound) {
+                    oList.unbindItems();
+                    oList.bindItems({
+                        path: "GLALL>/items",
+                        template: new sap.m.StandardListItem({
+                            title: "{GLALL>GLAccount}",
+                            description: "{GLALL>GLAccountLongName}"
+                        })
+                    });
+                    // 아이템 그려진 뒤 선택 복원
+                    oList.attachUpdateFinished(this._restoreGlAccountSelectionNow.bind(this));
+                    this._glAccountListBound = true;
+                } else {
+                    oList.getBinding("items")?.refresh();
                 }
 
-                // 필드명 정규화
-                const normalizedData = data.map(item => ({
-                    GLAccount: item.GLAccount || item.GlAccount || item.glAccount || item.account || '',
-                    GLAccountLongName: item.GLAccountLongName || item.GlAccountLongName || item.glAccountLongName || item.accountName || item.name || ''
-                })).filter(item => item.GLAccount && item.GLAccountLongName);
+                // 이미 아이템이 있으면 즉시 1회 복원 (깜빡임 최소화)
+                if (oList.getItems().length) this._restoreGlAccountSelectionNow();
 
-                // 중복 제거
-                const uniqueData = this._removeDuplicates(normalizedData, 'GLAccount');
-
-                // 모델 설정
-                const oJson = new sap.ui.model.json.JSONModel();
-                oJson.setData({
-                    items: uniqueData
-                });
-                oMenu.setModel(oJson, "GLALL");
-
-                // 리스트 바인딩
-                oList.unbindItems();
-                oList.bindItems({
-                    path: "GLALL>/items",
-                    template: new sap.m.StandardListItem({
-                        title: "{GLALL>GLAccount}",
-                        description: "{GLALL>GLAccountLongName}"
-                    })
-                });
-
-                // 강제 업데이트
-                oList.invalidate();
-                oMenu.invalidate();
-
-                // 이전 선택 상태 복원
-                this._restoreGlAccountSelection();
-
-                console.log("GlAccount data loaded successfully:", uniqueData.length, "items");
-
-            } catch (error) {
-                console.error("Error in onGlAccountMenuBeforeOpen:", error);
-                sap.m.MessageToast.show("오류가 발생했습니다: " + error.message);
+            } catch (e) {
+                console.error(e);
+                sap.m.MessageToast.show("G/L 계정 데이터를 준비하는 중 오류가 발생했습니다.");
             }
+            this._rebuildGlIndex(uniqueData);
+            this._setListSelectionFromSel(oList);
+            this._syncGlListSelectionFromSel();
+            this._syncGlTokensFromSel();
+        },
+        // MI_GlAccountSelected 토큰 + 메모리 상태를 합쳐서 키 Set 반환
+        _getGLSelectedKeys: function () {
+            const keys = new Set();
+            (this._glSelKeys || new Set()).forEach(k => keys.add(String(k)));
+
+            const mi = this.byId("MI_GlAccountSelected");
+            (mi?.getTokens?.() || []).forEach(t => keys.add(String(t.getKey())));
+            return keys;
         },
 
-        // GlAccount 선택 상태 복원
-        _restoreGlAccountSelection: function () {
+        // 현재 바인딩된 리스트의 아이템을 순회하며 선택 복원
+        _restoreGlAccountSelectionNow: function () {
             const oList = this.byId("L_GlAccount");
-            const oMultiInput = this.byId("MI_GlAccountSelected");
+            const b = oList && oList.getBinding("items");
+            if (!oList || !b) return;
 
-            if (!oList || !oMultiInput) return;
+            const keys = this._getGLSelectedKeys();
+            if (!keys.size) return;
 
-            // 현재 선택된 토큰들 가져오기
-            const currentTokens = oMultiInput.getTokens() || [];
-            if (currentTokens.length === 0) return;
-
-            // 토큰의 key들을 추출
-            const selectedKeys = currentTokens.map(token => token.getKey());
-
-            // 리스트에서 해당 항목들을 선택 상태로 설정
-            const aListItems = oList.getItems();
-            aListItems.forEach(item => {
+            (oList.getItems() || []).forEach(item => {
                 const ctx = item.getBindingContext("GLALL");
-                if (ctx) {
-                    const glAccount = ctx.getProperty("GLAccount");
-                    if (selectedKeys.includes(glAccount)) {
-                        oList.setSelectedItem(item, true);
-                    }
+                const gl = ctx && ctx.getProperty("GLAccount");
+                if (gl && keys.has(String(gl))) {
+                    oList.setSelectedItem(item, true /* suppress event */);
                 }
             });
-
-            console.log("GlAccount selection restored:", selectedKeys.length, "items");
         },
 
         onGlAccountSelectionChange: function (oEvent) {
             const oList = oEvent.getSource();
             const aSelectedItems = oList.getSelectedItems() || [];
 
-            // 선택된 항목들을 토큰으로 변환
-            const aTokens = aSelectedItems.map(item => {
-                const ctx = item.getBindingContext("GLALL");
-                if (!ctx) return null;
+            // ★ 단일 소스 갱신
+            this._glSel = new Set(
+                aSelectedItems.map(item => {
+                    const ctx = item.getBindingContext("GLALL");
+                    return ctx ? String(ctx.getProperty("GLAccount")) : null;
+                }).filter(Boolean)
+            );
 
-                const glAccount = ctx.getProperty("GLAccount");
-                const glAccountName = ctx.getProperty("GLAccountLongName");
-
-                return new sap.m.Token({
-                    key: glAccount,
-                    text: `${glAccountName} (${glAccount})`,
-                    delete: () => {
-                        // 토큰 삭제 시 리스트에서도 선택 해제
-                        item.setSelected(false);
-                        this._updateGlAccountTokens();
-                    }
-                });
-            }).filter(Boolean);
-
-            // MultiInput에 토큰 설정
-            const oMultiInput = this.byId("MI_GlAccountSelected");
-            if (oMultiInput) {
-                oMultiInput.setTokens(aTokens);
-            }
+            // ★ 토큰 동기화
+            this._syncGlTokensFromSel();
         },
 
         // 토큰 업데이트 헬퍼 함수
@@ -705,224 +683,154 @@ sap.ui.define([
         },
 
         onGlAccountMenuConfirm: function () {
-            const oTable = this.byId(Control.Table.T_Main);
-            const oBinding = oTable.getBinding("rows");
             const oList = this.byId("L_GlAccount");
+            if (!oList) return;
 
-            if (!oBinding || !oList) {
-                console.error("Table binding or list not found");
-                return;
-            }
-
-            const aVals = (oList.getSelectedItems() || [])
-                .map(it => {
-                    const ctx = it.getBindingContext("GLALL");
-                    return ctx ? ctx.getProperty("GLAccount") : null;
-                })
+            const keys = (oList.getSelectedItems() || [])
+                .map(it => it.getBindingContext("GLALL")?.getProperty("GLAccount"))
                 .filter(Boolean);
 
-            // 기존 Application 필터들 중 GlAccount 필터 제거
-            const aExisting = (oBinding.aApplicationFilters || []).filter(f => f.sPath !== "GlAccount");
+            // 토큰 유지
+            this._updateGlAccountTokens();
 
-            if (aVals.length) {
-                // GlAccount에 대해 EQ OR 필터 생성
-                const glAccountFilters = aVals.map(v =>
-                    new sap.ui.model.Filter("GlAccount", sap.ui.model.FilterOperator.EQ, v)
-                );
-
-                aExisting.push(new sap.ui.model.Filter({
-                    filters: glAccountFilters,
-                    and: false // OR 조건
-                }));
+            //  오직 _colFilters 로만 상태 보관
+            this._colFilters = this._colFilters || {};
+            if (keys.length) {
+                this._colFilters["GlAccount"] = keys.join(","); // EQ OR 로 변환됨
+            } else {
+                delete this._colFilters["GlAccount"];
             }
 
-            // 필터 적용
-            oBinding.filter(aExisting, "Application");
+            // 전체 필터 재적용 (기존 Application 필터 싹 재조립)
+            this._applyTableFilters();
+        },
 
-            console.log("Applied GlAccount filter:", aVals);
+        onGlAccountMenuReset: function () {
+            this.byId("L_GlAccount")?.removeSelections(true);
+            this.byId("MI_GlAccountSelected")?.setTokens([]);
 
-            // 토큰 상태 유지
-            this._updateGlAccountTokens();
+            if (this._colFilters) delete this._colFilters["GlAccount"];
+            this._applyTableFilters();
+
+            sap.m.MessageToast.show("G/L 계정 필터가 초기화되었습니다.");
         },
 
         onGlAccountMenuCancel: function () {
-            // 선택 초기화
-            const oList = this.byId("L_GlAccount");
-            if (oList) {
-                oList.removeSelections(true);
-            }
-
-            // 토큰도 초기화
-            const oMultiInput = this.byId("MI_GlAccountSelected");
-            if (oMultiInput) {
-                oMultiInput.setTokens([]);
-            }
+            const oMenu = this.byId("M_GlAccount");
+            if (oMenu) oMenu.close(); // 선택/토큰 건드리지 않음
         },
-        onGlAccountMenuReset: function () {
-            // 리스트에서 모든 선택 해제
-            const oList = this.byId("L_GlAccount");
-            if (oList) {
-                oList.removeSelections(true);
-            }
 
-            // MultiInput에서 모든 토큰 제거
-            const oMultiInput = this.byId("MI_GlAccountSelected");
-            if (oMultiInput) {
-                oMultiInput.setTokens([]);
-            }
 
-            // 테이블에서 GlAccount 필터 제거
-            const oTable = this.byId(Control.Table.T_Main);
-            const oBinding = oTable.getBinding("rows");
-            if (oBinding) {
-                const aExisting = (oBinding.aApplicationFilters || []).filter(f => f.sPath !== "GlAccount");
-                oBinding.filter(aExisting, "Application");
-            }
-
-            console.log("GlAccount filter reset");
-            sap.m.MessageToast.show("G/L 계정 필터가 초기화되었습니다.");
-        },
         // ========================================================================
         // GL ACCOUNT TEXT FILTER FUNCTIONS (Updated)
         // ========================================================================
         onColumnMenuBeforeOpen: async function () {
+            const oMenu = this.byId("M_GlAccountText");
+            const oList = this.byId("L_GlAccountText");
+            if (!oMenu || !oList) return;
+
             try {
-                console.log("Starting GL Account Text filter data load...");
+                // 공용 캐시 없으면 로드
+                if (!Array.isArray(this._glAllCache) || !this._glAllCache.length) {
+                    let data = [];
+                    const oGLModel = this.getView().getModel("oGLAccount");
+                    if (Array.isArray(oGLModel?.getData())) data = oGLModel.getData();
+                    if (!data.length) { try { data = await this._loadGLAll(); } catch (e) { } }
+                    if (!data.length && typeof this._getTestGLAccountData === "function") data = this._getTestGLAccountData();
 
-                let data = [];
+                    const normalized = (data || []).map(it => ({
+                        GLAccount: it.GLAccount || it.GlAccount || it.glAccount || it.account || "",
+                        GLAccountLongName: it.GLAccountLongName || it.GlAccountLongName || it.glAccountLongName || it.accountName || it.name || ""
+                    })).filter(it => it.GLAccount && it.GLAccountLongName);
 
-                // 1. 기존 oGLAccount 모델에서 데이터 가져오기 (우선순위)
-                const oGLModel = this.getView().getModel("oGLAccount");
-                if (oGLModel) {
-                    const glData = oGLModel.getData();
-
-                    if (Array.isArray(glData) && glData.length > 0) {
-                        data = glData;
-                        console.log("Using oGLAccount model data:", data.length);
-                    }
+                    this._glAllCache = this._removeDuplicates(normalized, "GLAccount");
                 }
 
-                // 2. oGLAccount에 데이터가 없으면 OData에서 로드
-                if (data.length === 0) {
-                    try {
-                        data = await this._loadGLAll();
-                    } catch (error) {
-                        console.warn("OData load failed:", error);
-                    }
+                // 모델 부착
+                let jm = oMenu.getModel("GLALL");
+                if (!jm) {
+                    jm = new sap.ui.model.json.JSONModel({ items: this._glAllCache });
+                    oMenu.setModel(jm, "GLALL");
+                    oList.setModel(jm, "GLALL");
+                } else {
+                    jm.setProperty("/items", this._glAllCache);
                 }
 
-                // 3. 여전히 데이터가 없으면 테스트 데이터 사용
-                if (data.length === 0) {
-                    data = this._getTestGLAccountData();
+                // 최초 한 번만 바인딩
+                if (!this._glAccountTextListBound) {
+                    oList.unbindItems();
+                    oList.bindItems({
+                        path: "GLALL>/items",
+                        template: new sap.m.StandardListItem({
+                            title: "{GLALL>GLAccountLongName}",
+                            description: "{GLALL>GLAccount}"
+                        })
+                    });
+                    oList.attachUpdateFinished(this._restoreGlAccountTextSelectionNow.bind(this));
+                    this._glAccountTextListBound = true;
+                } else {
+                    oList.getBinding("items")?.refresh();
                 }
 
-                const oMenu = this.byId("M_GlAccountText");
-                const oList = this.byId("L_GlAccountText");
+                // 이미 그려져 있으면 즉시 복원
+                if (oList.getItems().length) this._restoreGlAccountTextSelectionNow();
 
-                if (!oMenu || !oList) {
-                    console.error("GlAccountText Menu or List not found");
-                    return;
-                }
-
-                // 필드명 정규화
-                const normalizedData = data.map(item => ({
-                    GLAccount: item.GLAccount || item.GlAccount || item.glAccount || item.account || '',
-                    GLAccountLongName: item.GLAccountLongName || item.GlAccountLongName || item.glAccountLongName || item.accountName || item.name || ''
-                })).filter(item => item.GLAccount && item.GLAccountLongName);
-
-                // 중복 제거
-                const uniqueData = this._removeDuplicates(normalizedData, 'GLAccount');
-
-                // 모델 설정
-                const oJson = new sap.ui.model.json.JSONModel();
-                oJson.setData({
-                    items: uniqueData
-                });
-                oMenu.setModel(oJson, "GLALL");
-
-                // 리스트 바인딩
-                oList.unbindItems();
-                oList.bindItems({
-                    path: "GLALL>/items",
-                    template: new sap.m.StandardListItem({
-                        title: "{GLALL>GLAccountLongName}",
-                        description: "{GLALL>GLAccount}"
-                    })
-                });
-
-                // 강제 업데이트
-                oList.invalidate();
-                oMenu.invalidate();
-
-                // 이전 선택 상태 복원
-                this._restoreGlAccountTextSelection();
-
-                console.log("GL Account Text filter data loaded successfully:", uniqueData.length, "items");
-
-            } catch (error) {
-                console.error("Error in onColumnMenuBeforeOpen:", error);
-                sap.m.MessageToast.show("G/L 계정 내역 필터 데이터 로딩 중 오류가 발생했습니다: " + error.message);
+            } catch (e) {
+                console.error(e);
+                sap.m.MessageToast.show("G/L 계정 내역 데이터를 준비하는 중 오류가 발생했습니다.");
             }
+            // 모델 설정/바인딩 이후 ↓↓↓
+            this._rebuildGlIndex(uniqueData);
+            this._setListSelectionFromSel(oList);
+            this._syncGlListSelectionFromSel();
+            this._syncGlTokensFromSel();
+
         },
 
-        // GlAccountText 선택 상태 복원
-        _restoreGlAccountTextSelection: function () {
+
+        // GlAccountText: 토큰 + 메모리 합쳐 키셋
+        _getGLTextSelectedKeys: function () {
+            const keys = new Set();
+            (this._glTextSelKeys || new Set()).forEach(k => keys.add(String(k)));
+            const mi = this.byId("MI_GlAccountTextSelected");
+            (mi?.getTokens?.() || []).forEach(t => keys.add(String(t.getKey())));
+            return keys;
+        },
+
+        // GlAccountText: 현재 리스트에 선택 복원
+        _restoreGlAccountTextSelectionNow: function () {
             const oList = this.byId("L_GlAccountText");
-            const oMultiInput = this.byId("MI_GlAccountTextSelected");
+            const b = oList && oList.getBinding("items");
+            if (!oList || !b) return;
 
-            if (!oList || !oMultiInput) return;
+            const keys = this._getGLTextSelectedKeys();
+            if (!keys.size) return;
 
-            // 현재 선택된 토큰들 가져오기
-            const currentTokens = oMultiInput.getTokens() || [];
-            if (currentTokens.length === 0) return;
-
-            // 토큰의 key들을 추출
-            const selectedKeys = currentTokens.map(token => token.getKey());
-
-            // 리스트에서 해당 항목들을 선택 상태로 설정
-            const aListItems = oList.getItems();
-            aListItems.forEach(item => {
+            (oList.getItems() || []).forEach(item => {
                 const ctx = item.getBindingContext("GLALL");
-                if (ctx) {
-                    const glAccount = ctx.getProperty("GLAccount");
-                    if (selectedKeys.includes(glAccount)) {
-                        oList.setSelectedItem(item, true);
-                    }
+                const gl = ctx && ctx.getProperty("GLAccount");
+                if (gl && keys.has(String(gl))) {
+                    oList.setSelectedItem(item, true);
                 }
             });
-
-            console.log("GlAccountText selection restored:", selectedKeys.length, "items");
         },
 
+
+       
         onGlAccountTextSelectionChange: function (oEvent) {
             const oList = oEvent.getSource();
             const aSelectedItems = oList.getSelectedItems() || [];
 
-            // 선택된 항목들을 토큰으로 변환
-            const aTokens = aSelectedItems.map(item => {
-                const ctx = item.getBindingContext("GLALL");
-                if (!ctx) return null;
+            this._glSel = new Set(
+                aSelectedItems.map(item => {
+                    const ctx = item.getBindingContext("GLALL");
+                    return ctx ? String(ctx.getProperty("GLAccount")) : null;
+                }).filter(Boolean)
+            );
 
-                const glAccount = ctx.getProperty("GLAccount");
-                const glAccountName = ctx.getProperty("GLAccountLongName");
-
-                return new sap.m.Token({
-                    key: glAccount,
-                    text: `${glAccountName} (${glAccount})`,
-                    delete: () => {
-                        // 토큰 삭제 시 리스트에서도 선택 해제
-                        item.setSelected(false);
-                        this._updateGlAccountTextTokens();
-                    }
-                });
-            }).filter(Boolean);
-
-            // MultiInput에 토큰 설정
-            const oMultiInput = this.byId("MI_GlAccountTextSelected");
-            if (oMultiInput) {
-                oMultiInput.setTokens(aTokens);
-            }
+            this._syncGlTokensFromSel();
         },
+
 
         // 토큰 업데이트 헬퍼 함수
         _updateGlAccountTextTokens: function () {
@@ -972,46 +880,85 @@ sap.ui.define([
 
             console.log("GlAccountText token deleted:", sKey);
         },
-
         onColumnMenuConfirm: function () {
-            const oTable = this.byId(Control.Table.T_Main);
-            const oBinding = oTable.getBinding("rows");
             const oList = this.byId("L_GlAccountText");
+            if (!oList) return;
 
-            if (!oBinding || !oList) {
-                console.error("Table binding or list not found");
-                return;
-            }
-
-            const aVals = (oList.getSelectedItems() || [])
-                .map(it => {
-                    const ctx = it.getBindingContext("GLALL");
-                    return ctx ? ctx.getProperty("GLAccountLongName") : null;
-                })
+            // 선택된 항목들의 "표시명" 수집 (Contains OR로 묶어서 적용할 값)
+            const names = (oList.getSelectedItems() || [])
+                .map(it => it.getBindingContext("GLALL")?.getProperty("GLAccountLongName"))
                 .filter(Boolean);
 
-            // 기존 Application 필터들 중 GlAccountText 필터 제거
-            const aExisting = (oBinding.aApplicationFilters || []).filter(f => f.sPath !== "GlAccountText");
+            // 토큰은 UI에 유지
+            this._updateGlAccountTextTokens();
 
-            if (aVals.length) {
-                // GlAccountText에 대해 Contains OR 필터 생성
-                const glAccountTextFilters = aVals.map(v =>
-                    new sap.ui.model.Filter("GlAccountText", sap.ui.model.FilterOperator.Contains, v)
-                );
-
-                aExisting.push(new sap.ui.model.Filter({
-                    filters: glAccountTextFilters,
-                    and: false // OR 조건
-                }));
+            this._colFilters = this._colFilters || {};
+            if (names.length) {
+                this._colFilters.GlAccountText = names.join(",");
+            } else {
+                delete this._colFilters.GlAccountText;
             }
 
-            // 필터 적용
-            oBinding.filter(aExisting, "Application");
+            // 실제 필터 적용은 공통 루트에서 1회
+            this._applyTableFilters();
+        },
 
-            console.log("Applied GlAccountText filter:", aVals);
+        onGlAccountTextMenuReset: function () {
+            // 리스트 선택 해제
+            const oList = this.byId("L_GlAccountText");
+            if (oList) {
+                (oList.getItems() || []).forEach(it => it.setSelected(false));
+                oList.removeSelections(false);
+            }
 
-            // 토큰 상태 유지
-            this._updateGlAccountTextTokens();
+            // 토큰 제거
+            const oMI = this.byId("MI_GlAccountTextSelected");
+            if (oMI) oMI.setTokens([]);
+
+            // 파이프라인 값 제거 + 일괄 적용
+            this._colFilters = this._colFilters || {};
+            delete this._colFilters.GlAccountText;
+
+            this._applyTableFilters();
+
+            sap.m.MessageToast.show("G/L 계정 내역 필터가 초기화되었습니다.");
+        },
+
+        onGlAccountMenuConfirm: function () {
+            const oList = this.byId("L_GlAccount");
+            if (!oList) return;
+
+            // 선택 키 수집
+            const keys = (oList.getSelectedItems() || [])
+                .map(it => it.getBindingContext("GLALL")?.getProperty("GLAccount"))
+                .filter(Boolean);
+
+            // 토큰은 그대로 UI에 유지
+            this._updateGlAccountTokens();
+            this._colFilters = this._colFilters || {};
+            if (keys.length) {
+                this._colFilters.GlAccount = keys.join(",");   // "16001000,17001000,17001110" 형태
+            } else {
+                delete this._colFilters.GlAccount;
+            }
+
+            this._applyTableFilters();  // 내부에서 base/search/column 필터 전부 재조립하여 1회 적용
+        },
+
+        onGlAccountMenuReset: function () {
+            const oList = this.byId("L_GlAccount");
+            if (oList) {
+                (oList.getItems() || []).forEach(it => it.setSelected(false));
+                oList.removeSelections(false); // suppress=false (이벤트 발생)
+            }
+            const oMI = this.byId("MI_GlAccountSelected");
+            if (oMI) oMI.setTokens([]);
+
+            this._colFilters = this._colFilters || {};
+            delete this._colFilters.GlAccount;
+
+            this._applyTableFilters();
+            sap.m.MessageToast.show("G/L 계정 필터가 초기화되었습니다.");
         },
 
         onColumnMenuCancel: function () {
@@ -1044,30 +991,7 @@ sap.ui.define([
 
             oBind.filter(new sap.ui.model.Filter([f1, f2], false)); // OR 조건
         },
-        onGlAccountTextMenuReset: function () {
-            // 리스트에서 모든 선택 해제
-            const oList = this.byId("L_GlAccountText");
-            if (oList) {
-                oList.removeSelections(true);
-            }
 
-            // MultiInput에서 모든 토큰 제거
-            const oMultiInput = this.byId("MI_GlAccountTextSelected");
-            if (oMultiInput) {
-                oMultiInput.setTokens([]);
-            }
-
-            // 테이블에서 GlAccountText 필터 제거
-            const oTable = this.byId(Control.Table.T_Main);
-            const oBinding = oTable.getBinding("rows");
-            if (oBinding) {
-                const aExisting = (oBinding.aApplicationFilters || []).filter(f => f.sPath !== "GlAccountText");
-                oBinding.filter(aExisting, "Application");
-            }
-
-            console.log("GlAccountText filter reset");
-            sap.m.MessageToast.show("G/L 계정 내역 필터가 초기화되었습니다.");
-        },
         // ========================================================================
         // TABLE SEARCH UX (inline search + scoped navigation)
         // ========================================================================
@@ -2151,78 +2075,79 @@ sap.ui.define([
             return false;
         },
 
-        _applyGroupRowColors: function () {
-            const oTable = this.byId(Control.Table.T_Main);
-            const oBinding = oTable && oTable.getBinding("rows");
-            if (!oTable || !oBinding) return;
+        // _applyGroupRowColors: function () {
+        //     const oTable = this.byId(Control.Table.T_Main);
+        //     const oBinding = oTable && oTable.getBinding("rows");
+        //     if (!oTable || !oBinding) return;
 
-            const first = oTable.getFirstVisibleRow();
-            const aRows = oTable.getRows();
+        //     const first = oTable.getFirstVisibleRow();
+        //     const aRows = oTable.getRows();
 
-            // 하이라이트할 데이터 property들
-            const WANT = new Set([
-                "PeriodBalance",
-                "ComparisonBalance",
-                "AbsoluteDifference",
-                "RelativeDifference",
-                "CompanyCodeCurrency"
-            ]);
+        //     // 하이라이트할 데이터 property들
+        //     const WANT = new Set([
+        //         "PeriodBalance",
+        //         "ComparisonBalance",
+        //         "AbsoluteDifference",
+        //         "RelativeDifference",
+        //         "CompanyCodeCurrency"
+        //     ]);
 
-            const inferProp = (col) => {
-                // 템플릿 바인딩 path > sort/filterProperty > COL_<Prop> 규칙
-                let prop =
-                    (col.getSortProperty && col.getSortProperty()) ||
-                    (col.getFilterProperty && col.getFilterProperty());
-                if (!prop) {
-                    try {
-                        const t = col.getTemplate && col.getTemplate();
-                        const b = t && (t.getBinding && (t.getBinding("text") || t.getBinding("value") || t.getBinding("number")));
-                        if (b && b.getPath) prop = b.getPath();
-                    } catch (e) { }
-                }
-                if (!prop) {
-                    const id = col.getId && String(col.getId());
-                    const m = id && id.match(/COL_(.+)$/);
-                    if (m) prop = m[1];
-                }
-                return prop;
-            };
+        //     const inferProp = (col) => {
+        //         // 템플릿 바인딩 path > sort/filterProperty > COL_<Prop> 규칙
+        //         let prop =
+        //             (col.getSortProperty && col.getSortProperty()) ||
+        //             (col.getFilterProperty && col.getFilterProperty());
+        //         if (!prop) {
+        //             try {
+        //                 const t = col.getTemplate && col.getTemplate();
+        //                 const b = t && (t.getBinding && (t.getBinding("text") || t.getBinding("value") || t.getBinding("number")));
+        //                 if (b && b.getPath) prop = b.getPath();
+        //             } catch (e) { }
+        //         }
+        //         if (!prop) {
+        //             const id = col.getId && String(col.getId());
+        //             const m = id && id.match(/COL_(.+)$/);
+        //             if (m) prop = m[1];
+        //         }
+        //         return prop;
+        //     };
 
-            // 현재 컬럼의 실제 데이터 property 기준으로 대상 인덱스 산출
-            const aColumns = oTable.getColumns();
-            const targetIdx = aColumns
-                .map((col, idx) => (WANT.has(inferProp(col)) ? idx : undefined))
-                .filter((ix) => ix !== undefined);
+        //     // 현재 컬럼의 실제 데이터 property 기준으로 대상 인덱스 산출
+        //     const aColumns = oTable.getColumns();
+        //     const targetIdx = aColumns
+        //         .map((col, idx) => (WANT.has(inferProp(col)) ? idx : undefined))
+        //         .filter((ix) => ix !== undefined);
 
-            for (let i = 0; i < aRows.length; i++) {
-                const rowCtrl = aRows[i];
-                const ctx = oBinding.getContextByIndex(first + i);
-                const obj = ctx && ctx.getObject && ctx.getObject();
-                const cells = rowCtrl.getCells ? rowCtrl.getCells() : [];
+        //     for (let i = 0; i < aRows.length; i++) {
+        //         const rowCtrl = aRows[i];
+        //         const ctx = oBinding.getContextByIndex(first + i);
+        //         const obj = ctx && ctx.getObject && ctx.getObject();
+        //         const cells = rowCtrl.getCells ? rowCtrl.getCells() : [];
 
-                // 제거
-                targetIdx.forEach(ix => {
-                    const c = cells[ix];
-                    if (!c) return;
-                    c.removeStyleClass("sumCellYellow");
-                    const $td = c.$().closest("td");
-                    $td.removeClass("sumCellYellow");
-                });
+        //         // 제거
+        //         targetIdx.forEach(ix => {
+        //             const c = cells[ix];
+        //             if (!c) return;
+        //             c.removeStyleClass("sumCellYellow");
+        //             const $td = c.$().closest("td");
+        //             $td.removeClass("sumCellYellow");
+        //         });
 
-                if (!obj) continue;
-                if (this._isBSorPLRow(obj)) continue;  // BS/PL 제외
-                if (obj.GlAccount) continue;           // 상세행 제외 (집계행만 칠함)
+        //         if (!obj) continue;
+        //         if (this._isBSorPLRow(obj)) continue;  // BS/PL 제외
+        //         if (obj.GlAccount) continue;           // 상세행 제외 (집계행만 칠함)
 
-                // 추가
-                targetIdx.forEach(ix => {
-                    const c = cells[ix];
-                    if (!c) return;
-                    c.addStyleClass("sumCellYellow");
-                    const $td = c.$().closest("td");
-                    $td.addClass("sumCellYellow");
-                });
-            }
-        },
+        //         // 추가
+        //         targetIdx.forEach(ix => {
+        //             const c = cells[ix];
+        //             if (!c) return;
+        //             c.addStyleClass("sumCellYellow");
+        //             const $td = c.$().closest("td");
+        //             $td.addClass("sumCellYellow");
+        //         });
+        //     }
+        // },
+
 
         // ========================================================================
         // SEARCH INTERNALS
@@ -2451,16 +2376,26 @@ sap.ui.define([
             }
             return -1;
         },
-        _bm_all() { try { return JSON.parse(localStorage.getItem(BM_KEY) || "[]"); } catch (e) { return []; } },
-        _bm_putAll(a) { localStorage.setItem(BM_KEY, JSON.stringify(a || [])); },
-        _bm_save(name, state) {
-            const a = this._bm_all();
+        _bm_all: async function () {
+            const store = await this._getPersContainer();
+            return await store.get();                // [{id,name,createdAt,state}, ...]
+        },
+        _bm_putAll: async function (a) {
+            const store = await this._getPersContainer();
+            await store.set(a || []);
+        },
+        _bm_save: async function (name, state) {
+            const a = await this._bm_all();
             const id = Date.now().toString(36);
             a.push({ id, name, createdAt: Date.now(), state });
-            this._bm_putAll(a);
+            await this._bm_putAll(a);
             return id;
         },
-        _bm_delete(id) { this._bm_putAll(this._bm_all().filter(b => b.id !== id)); },
+        _bm_delete: async function (id) {
+            const a = await this._bm_all();
+            await this._bm_putAll(a.filter(b => b.id !== id));
+        },
+
         // ========================================================================
         // ODATA / CLIENT MODE SWITCHING
         // ========================================================================
@@ -2713,48 +2648,6 @@ sap.ui.define([
 
             oBinding.filter(aBase.concat(aSearch, aColFilters), sap.ui.model.FilterType.Application);
         },
-
-        // _buildFilterForValueWithType: function (sPath, sRaw) {
-        //     const Filter = sap.ui.model.Filter, OP = sap.ui.model.FilterOperator;
-        //     const s = (sRaw || "").trim();
-
-        //     // 숫자형 컬럼(서비스에 맞게 필요시 조정)
-        //     const NUM = new Set(["PeriodBalance", "ComparisonBalance", "AbsoluteDifference", "RelativeDifference"]);
-
-        //     // 문자열 다중값 OR: a,b,c
-        //     if (!NUM.has(sPath) && s.includes(",")) {
-        //         const parts = s.split(",").map(v => v.trim()).filter(Boolean);
-        //         if (parts.length) {
-        //             return [new Filter({ and: false, filters: parts.map(v => new Filter(sPath, OP.EQ, v)) })];
-        //         }
-        //     }
-
-        //     // 숫자 범위: 10..100
-        //     const m = s.match(/^(-?\d+(?:\.\d+)?)\.\.(-?\d+(?:\.\d+)?)$/);
-        //     if (m && NUM.has(sPath)) return [new Filter(sPath, OP.BT, parseFloat(m[1]), parseFloat(m[2]))];
-
-        //     // 숫자 비교: >10, <=0
-        //     const cmp = s.match(/^(<=|>=|<|>)(-?\d+(?:\.\d+)?)$/);
-        //     if (cmp && NUM.has(sPath)) {
-        //         const map = { ">": OP.GT, "<": OP.LT, ">=": OP.GE, "<=": OP.LE };
-        //         return [new Filter(sPath, map[cmp[1]], parseFloat(cmp[2]))];
-        //     }
-
-        //     // 정확히: =값
-        //     if (s.startsWith("=")) {
-        //         const v = s.slice(1);
-        //         return [new Filter(sPath, OP.EQ, NUM.has(sPath) ? Number(v) : v)];
-        //     }
-
-        //     // 시작/끝: ^값 / 값$
-        //     if (!NUM.has(sPath) && s.startsWith("^")) return [new Filter(sPath, OP.StartsWith, s.slice(1))];
-        //     if (!NUM.has(sPath) && s.endsWith("$")) return [new Filter(sPath, OP.EndsWith, s.slice(0, -1))];
-
-        //     // 기본
-        //     // return [new Filter(sPath, NUM.has(sPath) ? OP.EQ : OP.Contains, NUM.has(sPath) ? Number(s) : s)];
-        //     return [new Filter(sPath, OP.EQ, s)];
-
-        // },
         _buildFilterForValueWithType: function (sPath, sRaw) {
             const Filter = sap.ui.model.Filter, OP = sap.ui.model.FilterOperator;
             const s = (sRaw || "").trim();
@@ -2994,7 +2887,7 @@ sap.ui.define([
                 tablePerso,
                 tableState: {
                     columnLayout,
-                    // ⬇️ 트리 상태는 tree 아래에 모아 저장 (복원 측과 경로/키 맞춤)
+                    // 트리 상태는 tree 아래에 모아 저장 (복원 측과 경로/키 맞춤)
                     tree: {
                         expandLevel,          // number
                         expandedNodes,        // string[]
@@ -3123,9 +3016,9 @@ sap.ui.define([
                 buttons: [
                     new sap.m.Button({
                         text: "저장", type: "Emphasized",
-                        press: () => {
+                        press: async () => {
                             const name = sap.ui.getCore().byId("BM_NAME").getValue().trim() || "내 북마크";
-                            this._bm_save(name, state);
+                            await this._bm_save(name, state);
                             dlg.close();
                             sap.m.MessageToast.show("북마크가 저장되었습니다.");
                         }
@@ -3222,48 +3115,15 @@ sap.ui.define([
 
 
         // 3) 불러오기 다이얼로그 (선택 → 적용)
-        onBookmarkLoad: function () {
-            const list = this._bm_all();
-            if (!list.length) { sap.m.MessageToast.show("저장된 북마크가 없습니다."); return; }
-
-            const oModel = new sap.ui.model.json.JSONModel({ items: list });
-            const dlg = new sap.m.SelectDialog({
-                title: "북마크 불러오기",
-                rememberSelections: false,
-                multiSelect: false,
-                items: {
-                    path: "/items",
-                    template: new sap.m.StandardListItem({
-                        title: "{name}",
-                        // 이전 답변대로 표현식 바인딩 대신 포매터 사용
-                        description: { path: "createdAt", formatter: formatter.fmtTsLocal },
-                        icon: "sap-icon://bookmark"
-                    })
-                },
-                confirm: async (ev) => {
-                    const item = ev.getParameter("selectedItem");
-                    const bm = item && item.getBindingContext().getObject();
-                    if (bm && bm.state) {
-                        await this._applyAppState(bm.state);
-                    }
-                    // ev.getSource().close(); // <- 굳이 직접 닫고 싶다면 이렇게
-                },
-                cancel: (ev) => {
-                    // ev.getSource().close(); // <- 필요 없음
-                },
-                afterClose: () => dlg.destroy()
-            });
-            dlg.setModel(oModel);
-            this.getView().addDependent(dlg);
-            dlg.open();
-        },
-        // === 북마크 관리(불러오기/삭제) ===
-        onBookmarkManage: function () {
-            const items = this._bm_all();
-            if (!items.length) { sap.m.MessageToast.show("저장된 북마크가 없습니다."); return; }
+        // 북마크 관리: 체크 선택 → [적용]으로 불러오기, [삭제]로 다중 삭제
+        onBookmarkManage: async function () {
+            const items = await this._bm_all();
+            if (!items.length) {
+                sap.m.MessageToast.show("저장된 북마크가 없습니다.");
+                return;
+            }
 
             const oModel = new sap.ui.model.json.JSONModel({ items, selCount: 0 });
-
             const oList = new sap.m.List({
                 mode: sap.m.ListMode.MultiSelect,
                 includeItemInSelection: true,
@@ -3272,13 +3132,18 @@ sap.ui.define([
                     path: "/items",
                     template: new sap.m.StandardListItem({
                         title: "{name}",
-                        description: { path: "createdAt", formatter: this.formatter.fmtTsLocal },
+                        description: {
+                            parts: [{ path: "createdAt" }],
+                            formatter: (v) => this.formatter.fmtTsLocal(v)   // <- 래퍼로 확실히 호출
+                        },
                         icon: "sap-icon://bookmark",
-                        selected: false
+                        selected: false,
+                        type: "Inactive"
                     })
                 }
             });
 
+            // 선택 개수 → 버튼 활성화 바인딩용
             oList.attachSelectionChange(() => {
                 oModel.setProperty("/selCount", (oList.getSelectedItems() || []).length);
             });
@@ -3290,6 +3155,25 @@ sap.ui.define([
                 stretchOnPhone: true,
                 content: [oList],
                 buttons: [
+                    // 적용(불러오기): 하나만 선택 시 가능
+                    new sap.m.Button({
+                        text: "적용",
+                        type: "Emphasized",
+                        enabled: "{= ${/selCount} === 1 }",
+                        press: async () => {
+                            const sel = oList.getSelectedItems() || [];
+                            if (sel.length !== 1) {
+                                sap.m.MessageToast.show("적용은 하나만 선택해 주세요.");
+                                return;
+                            }
+                            const bm = sel[0].getBindingContext().getObject();
+                            if (bm && bm.state) {
+                                await this._applyAppState(bm.state);
+                                dlg.close();
+                            }
+                        }
+                    }),
+                    // 삭제: 다중 가능
                     new sap.m.Button({
                         text: "삭제",
                         type: "Negative",
@@ -3297,32 +3181,24 @@ sap.ui.define([
                         press: () => {
                             const sel = oList.getSelectedItems() || [];
                             if (!sel.length) return;
+
                             sap.m.MessageBox.confirm(`선택한 ${sel.length}개 북마크를 삭제할까요?`, {
                                 actions: [sap.m.MessageBox.Action.OK, sap.m.MessageBox.Action.CANCEL],
                                 onClose: (act) => {
                                     if (act !== sap.m.MessageBox.Action.OK) return;
+
                                     sel.forEach(it => {
                                         const id = it.getBindingContext().getObject().id;
                                         this._bm_delete(id);
                                     });
-                                    // 목록 갱신
+
+                                    // 목록 새로고침 & 상태 초기화
                                     oModel.setProperty("/items", this._bm_all());
                                     oList.removeSelections(true);
                                     oModel.setProperty("/selCount", 0);
                                     sap.m.MessageToast.show("삭제되었습니다.");
                                 }
                             });
-                        }
-                    }),
-                    new sap.m.Button({
-                        text: "불러오기",
-                        type: "Emphasized",
-                        press: async () => {
-                            const sel = oList.getSelectedItems() || [];
-                            if (sel.length !== 1) { sap.m.MessageToast.show("불러오기는 하나만 선택해 주세요."); return; }
-                            const bm = sel[0].getBindingContext().getObject();
-                            if (bm && bm.state) { await this._applyAppState(bm.state); }
-                            dlg.close();
                         }
                     }),
                     new sap.m.Button({ text: "닫기", press: () => dlg.close() })
@@ -3334,6 +3210,12 @@ sap.ui.define([
             this.getView().addDependent(dlg);
             dlg.open();
         },
+
+        // 필요 시: 기존 onBookmarkLoad는 이 다이얼로그만 띄우게 연결
+        onBookmarkLoad: function () {
+            this.onBookmarkManage();
+        },
+
 
         _expandToLevel: async function (level) {
             const oTable = this.byId(Control.Table.T_Main);
@@ -3620,7 +3502,301 @@ sap.ui.define([
                 }
             }
         },
+        // FLP Personalization 컨테이너 헬퍼 (FLP 미탑재면 localStorage로 자동 폴백)
+        _getPersContainer: async function () {
+            try {
+                const Pers = await sap.ushell.Container.getServiceAsync("Personalization");
+                console.log("[BM] Using FLP Personalization");
+                const scope = {
+                    keyCategory: Pers.constants.keyCategory.FIXED_KEY,
+                    writeFrequency: Pers.constants.writeFrequency.HIGH,
+                    clientStorageAllowed: true,
+                    validity: Infinity
+                };
+                // 컨테이너 하나에 items 라는 아이템으로 전체 배열을 저장합니다.
+                const container = await Pers.getContainer(BM_KEY, scope, this.getOwnerComponent());
+                return {
+                    get: async () => container.getItemValue("items") || [],
+                    set: async (arr) => { container.setItemValue("items", arr || []); await container.save(); },
+                    del: async () => { container.delItem("items"); await container.save(); }
+                };
+            } catch (e) {
+                // FLP 외부 실행(standalone) 등일 때는 기존 localStorage로 폴백
+                return {
+                    get: async () => { try { return JSON.parse(localStorage.getItem(BM_KEY) || "[]"); } catch { return []; } },
+                    set: async (arr) => localStorage.setItem(BM_KEY, JSON.stringify(arr || [])),
+                    del: async () => localStorage.removeItem(BM_KEY)
+                };
+            }
+        },
+        // 주어진 Filter 트리(flt) 안에 sPath === targetPath 가 하나라도 있는지 재귀 탐색
+        _filterContainsPath: function (flt, targetPath) {
+            if (!flt) return false;
+            if (flt.sPath === targetPath) return true;
+            const children = (typeof flt.getFilters === "function" ? flt.getFilters() : flt.aFilters) || [];
+            return children.some(child => this._filterContainsPath(child, targetPath));
+        },
 
+        // Application 필터 배열에서 특정 path 들을 모두 제거
+        _stripAppFilters: function (oBinding, paths /* string[] */) {
+            const prev = (oBinding.aApplicationFilters || []);
+            return prev.filter(f => !paths.some(p => this._filterContainsPath(f, p)));
+        },
+        _reapplyAllAppFilters: function () {
+            const oTable = this.byId("T_Main");
+            const oBinding = oTable && oTable.getBinding("rows");
+            if (!oBinding) return;
+
+            // 기본(기간/회사) + 상단검색
+            const aBase = this._getTableFilter();
+            const aSearch = this._buildSearchFilters(this._lastTableQuery);
+
+            // 현재 선택 상태에서 컬럼필터 만들기
+            const aCol = [];
+
+            if (this._colSel.GlAccount && this._colSel.GlAccount.length) {
+                aCol.push(new sap.ui.model.Filter({
+                    and: false,
+                    filters: this._colSel.GlAccount.map(v =>
+                        new sap.ui.model.Filter("GlAccount", sap.ui.model.FilterOperator.EQ, v)
+                    )
+                }));
+            }
+
+            if (this._colSel.GlAccountText && this._colSel.GlAccountText.length) {
+                aCol.push(new sap.ui.model.Filter({
+                    and: false,
+                    filters: this._colSel.GlAccountText.map(v =>
+                        new sap.ui.model.Filter("GlAccountText", sap.ui.model.FilterOperator.Contains, v)
+                    )
+                }));
+            }
+
+            // ✅ 이전 Application 필터 신경쓰지 말고 “한 번에” 덮어쓰기
+            oBinding.filter(aBase.concat(aSearch, aCol), sap.ui.model.FilterType.Application);
+        },
+        // ★ GL 전체 데이터에서 인덱스 구성
+        _rebuildGlIndex: function (arr) {
+            this._glIndex = {};
+            (arr || []).forEach(it => {
+                const code = it.GLAccount;
+                const name = it.GLAccountLongName || it.GLAccountName || "";
+                if (code) this._glIndex[String(code)] = name || "";
+            });
+        },
+
+        // 토큰을 선택상태로부터 재구성(두 곳 모두 동기화)
+        _syncGlTokensFromSel: function () {
+            const toToken = (code, name) => new sap.m.Token({ key: String(code), text: `${name || code} (${code})` });
+            const m = this.byId("MI_GlAccountSelected");
+            const t = this.byId("MI_GlAccountTextSelected");
+            if (m) m.destroyTokens();
+            if (t) t.destroyTokens();
+
+            // 이름(롱네임) 필요하면 GLALL 모델에서 역조회
+            const model = (this.byId("M_GlAccount") || this.byId("M_GlAccountText"))?.getModel("GLALL");
+            const items = (model && model.getProperty("/items")) || [];
+
+            Array.from(this._glSel).forEach(code => {
+                const row = items.find(r => String(r.GLAccount) === String(code));
+                const token = toToken(code, row && row.GLAccountLongName);
+                if (m) m.addToken(token.clone());
+                if (t) t.addToken(token.clone());
+            });
+        },
+
+        // 리스트 체크를 선택상태로부터 재구성(둘 다 동기화)
+        _syncGlListSelectionFromSel: function () {
+            const lists = [this.byId("L_GlAccount"), this.byId("L_GlAccountText"), this.byId("L_GLaccountFilterList")].filter(Boolean);
+            const sel = new Set(Array.from(this._glSel).map(String));
+            lists.forEach(L => {
+                L.removeSelections(true);
+                (L.getItems() || []).forEach(item => {
+                    const bc = item.getBindingContext("GLALL");
+                    const code = bc && String(bc.getProperty("GLAccount"));
+                    if (code && sel.has(code)) L.setSelectedItem(item, true);
+                });
+            });
+        },
+        _resetGlAll: function () {
+            // 1) 내부 선택상태 비우기
+            this._glSel.clear();
+
+            // 2) 컬럼필터 캐시에서 GL 관련 키 제거(혹시 남아있을 수 있으니)
+            if (this._colFilters) {
+                delete this._colFilters.GlAccount;
+                delete this._colFilters.GlAccountText;
+            }
+
+            // 3) 실제 바인딩 필터 재적용(= GL 조건 없음 상태로 덮어쓰기)
+            this._applyGlSelectionFilters();
+
+            // 4) UI 체크/토큰 동시 초기화
+            this._clearGlUiSelection();
+        },
+        // UI(리스트/토큰) 모두 비우기
+        _clearGlUiSelection: function () {
+            // 리스트 체크 해제
+            ["L_GlAccount", "L_GlAccountText", "L_GLaccountFilterList"].forEach(id => {
+                const L = this.byId(id);
+                if (L) L.removeSelections(true);
+            });
+            // 토큰 제거
+            ["MI_GlAccountSelected", "MI_GlAccountTextSelected"].forEach(id => {
+                const MI = this.byId(id);
+                if (MI) MI.setTokens([]);
+            });
+        },
+
+        // ★ 리스트에 _glSel 상태를 반영(선택표시 동기화)
+        _setListSelectionFromSel: function (oList) {
+            if (!oList) return;
+            const items = oList.getItems() || [];
+            const sel = this._glSel;
+            items.forEach(item => {
+                const ctx = item.getBindingContext("GLALL");
+                const code = ctx && ctx.getProperty("GLAccount");
+                if (code != null) oList.setSelectedItem(item, sel.has(String(code)));
+            });
+        },
+
+        // MI_GlAccountSelected / MI_GlAccountTextSelected 의 tokenDelete 이벤트에 연결
+        onGlTokenDelete: function (oEvent) {
+            const sKey = oEvent.getParameter("key");
+            this._onGlTokenDelete(sKey);
+        },
+      
+        // 1) 필터 적용 함수는 async + 안정화 대기 후 칠하기
+        _applyGlSelectionFilters: async function () {
+            const oTable = this.byId("T_Main");
+            const oBinding = oTable && oTable.getBinding("rows");
+            if (!oBinding) return;
+
+            const base = this._getTableFilter();
+            const search = this._buildSearchFilters(this._lastTableQuery);
+
+            // 다른(비 GL) 컬럼 필터 병합
+            const otherCols = Object.entries(this._colFilters || {})
+                .filter(([p]) => !/^glaccount(text)?$/i.test(p))
+                .map(([p, v]) => this._buildFilterForValueWithType(p, v))
+                .flat();
+
+            const all = base.concat(search, otherCols);
+
+            // GL 계정 필터(다중 OR)
+            if (this._glSel && this._glSel.size > 0) {
+                const Filter = sap.ui.model.Filter, OP = sap.ui.model.FilterOperator;
+                const codes = Array.from(this._glSel).map(String);
+                all.push(new Filter({
+                    and: false,
+                    filters: codes.map(c => new Filter("GlAccount", OP.EQ, c))
+                }));
+            }
+
+            // GL 내역(텍스트) 필터(다중 OR, Contains)
+            if (this._glTextSel && this._glTextSel.size > 0) {
+                const Filter = sap.ui.model.Filter, OP = sap.ui.model.FilterOperator;
+                const texts = Array.from(this._glTextSel).map(String);
+                all.push(new Filter({
+                    and: false,
+                    filters: texts.map(t => new Filter("GlAccountText", OP.Contains, t))
+                }));
+            }
+
+            oBinding.filter(all, sap.ui.model.FilterType.Application);
+
+            // 안정화 대기 → 칠하기
+            await this._waitRowsSettled(oTable, 180);
+            this._refreshColumnIndexMap?.();
+            this._applyGroupRowColors?.();
+        },
+
+
+        _applyGroupRowColors: function () {
+            const oTable = this.byId(Control.Table.T_Main);
+            const oBinding = oTable && oTable.getBinding("rows");
+            if (!oTable || !oBinding) return;
+
+            const first = oTable.getFirstVisibleRow();
+            const aRows = oTable.getRows();
+
+            // 1) "property 이름"으로만 대상 컬럼 결정
+            const FIELDS = new Set([
+                "PeriodBalance",
+                "ComparisonBalance",
+                "AbsoluteDifference",
+                "RelativeDifference",
+                "CompanyCodeCurrency"
+            ]);
+
+            const inferProp = (col) => {
+                let p = (col.getFilterProperty && col.getFilterProperty()) ||
+                    (col.getSortProperty && col.getSortProperty());
+                if (!p) {
+                    try {
+                        const t = col.getTemplate && col.getTemplate();
+                        const b = t && (t.getBinding && (t.getBinding("text") || t.getBinding("value") || t.getBinding("number")));
+                        if (b && b.getPath) p = b.getPath();
+                    } catch (e) { }
+                }
+                if (!p) {
+                    const id = col.getId && String(col.getId());
+                    const m = id && id.match(/COL_(.+)$/);
+                    if (m) p = m[1];
+                }
+                return p;
+            };
+
+            // 화면에 보이는 컬럼들 -> 각 셀 index마다 연결된 property 구함
+            const visCols = oTable.getColumns().filter(c => c.getVisible && c.getVisible());
+            const cellPropList = visCols.map(inferProp); // 셀 index -> property 이름
+
+            // 2) 각 행에 대해 클래스 제거 -> 조건 맞으면 다시 칠하기
+            for (let i = 0; i < aRows.length; i++) {
+                const rowCtrl = aRows[i];
+                const ctx = oBinding.getContextByIndex(first + i);
+                const obj = ctx && ctx.getObject && ctx.getObject();
+                const cells = rowCtrl.getCells ? rowCtrl.getCells() : [];
+
+                // 모두 지우기
+                cells.forEach(c => {
+                    if (!c) return;
+                    c.removeStyleClass("sumCellYellow");
+                    const $td = c.$().closest("td");
+                    if ($td && $td.length) {
+                        $td.removeClass("sumCellYellow");
+                        $td.css("background-color", "");
+                    }
+                });
+
+                if (!obj) continue;
+                if (this._isBSorPLRow(obj)) continue;
+
+                // 집계행(GlAccount 없음) 이거나, 금액이 하나라도 있는 리프면 칠하기
+                const isGroup = !obj.GlAccount;
+                const hasAmt = this._hasAnyAmount(obj, [
+                    "PeriodBalance", "ComparisonBalance", "AbsoluteDifference", "RelativeDifference"
+                ]);
+                if (!(isGroup || hasAmt)) continue;
+
+                // 3) property 이름이 FIELDS에 들어있는 셀만 칠함 (열 순서/개인화/북마크 무관)
+                for (let ci = 0; ci < cells.length; ci++) {
+                    const prop = cellPropList[ci];
+                    if (!prop || !FIELDS.has(prop)) continue;
+
+                    const c = cells[ci];
+                    c.addStyleClass("sumCellYellow");
+                    const $td = c.$().closest("td");
+                    if ($td && $td.length) {
+                        $td.addClass("sumCellYellow");
+                        // 혹시 테마 우선순위에 지면 인라인 백업
+                        if (!$td[0].style.backgroundColor) {
+                            $td.css("background-color", "#fff7bf");
+                        }
+                    }
+                }
+            }
+        }
 
     });
 });

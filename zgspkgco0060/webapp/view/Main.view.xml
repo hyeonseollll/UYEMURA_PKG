@@ -101,7 +101,7 @@
                 </table:extension>
                 <table:columns>
                     <!-- 내역 -->
-                    <table:Column id="COL_NodeText" hAlign="Center" width="20rem" >
+                    <table:Column id="COL_NodeText" hAlign="Center" width="20rem">
                         <Label design="Bold" text="{i18n>NodeText}" />
                         <table:template>
                             <Text textAlign="Begin" text="{NodeText}" />
@@ -124,7 +124,7 @@
                         </table:template>
                     </table:Column>
                     <!-- 기간 잔액 -->
-                    <table:Column id="COL_PeriodBalance" hAlign="End" width="14rem" >
+                    <table:Column id="COL_PeriodBalance" hAlign="End" width="14rem">
                         <Label design="Bold" text="{i18n>PeriodBalance}" />
                         <table:template>
                             <HBox justifyContent="End" width="100%">
@@ -149,7 +149,7 @@
                     </table:Column>
 
                     <!-- 비교 기간 잔액 -->
-                    <table:Column id="COL_ComparisonBalance" hAlign="End" width="14rem" >
+                    <table:Column id="COL_ComparisonBalance" hAlign="End" width="14rem">
                         <Label design="Bold" text="{i18n>ComparisonBalance}" />
                         <table:template>
                             <HBox justifyContent="End" width="100%">
@@ -174,7 +174,7 @@
                     </table:Column>
 
                     <!-- 절대 차이 -->
-                    <table:Column id="COL_AbsoluteDifference" hAlign="End" width="12rem" >
+                    <table:Column id="COL_AbsoluteDifference" hAlign="End" width="12rem">
                         <Label design="Bold" text="{i18n>AbsoluteDifference}" />
                         <table:template>
                             <Text textAlign="End" text="{
@@ -191,7 +191,7 @@
                     </table:Column>
 
                     <!-- 상대 차이 -->
-                    <table:Column id="COL_RelativeDifference" hAlign="End" width="6rem" >
+                    <table:Column id="COL_RelativeDifference" hAlign="End" width="6rem">
                         <Label design="Bold" text="{i18n>RelativeDifference}" />
                         <table:template>
                             <Text textAlign="End" text="{
@@ -205,7 +205,7 @@
                         </table:template>
                     </table:Column>
                     <!-- 단위 -->
-                    <table:Column id="COL_CompanyCodeCurrency" hAlign="Left" width="5rem" >
+                    <table:Column id="COL_CompanyCodeCurrency" hAlign="Left" width="5rem">
                         <Label design="Bold" text="{i18n>CompanyCodeCurrency}" />
                         <table:template>
                             <Text textAlign="Left" text="{CompanyCodeCurrency}" />
@@ -218,10 +218,10 @@
     <!-- GlAccount 필터 메뉴 -->
     <columnmenu:Menu id="M_GlAccount" beforeOpen=".onGlAccountMenuBeforeOpen">
         <columnmenu:items>
-            <columnmenu:Item label="filter" confirm=".onGlAccountMenuConfirm" cancel=".onGlAccountMenuCancel"  reset=".onGlAccountMenuReset" showResetButton="true" showCancelButton="true">
+            <columnmenu:Item label="filter" confirm=".onGlAccountMenuConfirm" cancel=".onGlAccountMenuCancel" reset=".onGlAccountMenuReset" showResetButton="true" showCancelButton="true">
                 <VBox width="100%">
                     <!-- 검색 필드 -->
-                    <SearchField id="SF_GlAccount" width="100%" liveChange=".onGlAccountMenuSearch" placeholder="G/L 계정 검색"/>
+                    <SearchField id="SF_GlAccount" width="100%" liveChange=".onColumnMenuSearch" placeholder="G/L 계정 검색"/>
 
                     <!-- 항목 목록 -->
                     <List id="L_GlAccount" mode="MultiSelect" includeItemInSelection="true" selectionChange=".onGlAccountSelectionChange" width="100%" height="300px">
@@ -230,7 +230,14 @@
 
                     <!-- 선택된 항목 표시 영역 -->
                     <VBox width="100%" class="sapUiMediumMarginTop">
-                        <Label text="Selected Items and Conditions ({= ${GLALL>/selectedTokens}.length})" design="Bold"/>
+                        <Label design="Bold" text="{
+    parts: [
+      { path: 'i18n>selectedItems' },
+      { path: 'GLALL>/selectedTextTokens' }
+    ],
+    formatter: '.formatSelectedItems'
+  }"/>
+
                         <MultiInput id="MI_GlAccountSelected" width="100%" editable="false" showValueHelp="false" tokens="{GLALL>/selectedTokens}">
                             <tokens>
                                 <Token key="{GLALL>key}" text="{GLALL>text}" />
@@ -245,7 +252,7 @@
     <!-- GlAccountText 필터 메뉴 -->
     <columnmenu:Menu id="M_GlAccountText" beforeOpen=".onColumnMenuBeforeOpen">
         <columnmenu:items>
-            <columnmenu:Item label="filter" confirm=".onColumnMenuConfirm" cancel=".onColumnMenuCancel"  reset=".onGlAccountTextMenuReset" showResetButton="true" showCancelButton="true">
+            <columnmenu:Item label="filter" confirm=".onColumnMenuConfirm" cancel=".onColumnMenuCancel" reset=".onGlAccountTextMenuReset" showResetButton="true" showCancelButton="true">
                 <VBox width="100%">
                     <SearchField id="SF_GlAccountText" width="100%" liveChange=".onColumnMenuSearch"/>
 
@@ -256,7 +263,14 @@
 
                     <!-- 선택된 항목 표시 -->
                     <VBox width="100%" class="sapUiMediumMarginTop">
-                        <Label text="Selected Items and Conditions ({= ${GLALL>/selectedTextTokens}.length})" design="Bold"/>
+                        <Label design="Bold" text="{
+    parts: [
+      { path: 'i18n>selectedItems' },
+      { path: 'GLALL>/selectedTextTokens' }
+    ],
+    formatter: '.formatSelectedItems'
+  }"/>
+
                         <MultiInput id="MI_GlAccountTextSelected" width="100%" editable="false" showValueHelp="false" tokenUpdate=".onGlAccountTextTokenUpdate" tokens="{GLALL>/selectedTextTokens}">
                             <tokens>
                                 <Token key="{GLALL>key}" text="{GLALL>text}"/>

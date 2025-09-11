@@ -78,3 +78,16 @@
   td.sumCellYellow { background-color:#fff7bf !important; }
 }
 
+/* sap.ui.table.Table 셀 */
+.sapUiTableCell.sumCellYellow,
+.sapUiTableCell .sumCellYellow {
+  background-color: #fff7bf !important;
+}
+
+/* (혹시 m.Table을 함께 쓰면) */
+.sapMListTblCell.sumCellYellow,
+.sapMListTblCell .sumCellYellow {
+  background-color: #fff7bf !important;
+}
+
+

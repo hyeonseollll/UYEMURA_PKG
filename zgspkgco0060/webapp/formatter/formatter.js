@@ -2,7 +2,7 @@
 sap.ui.define([], function () {
     "use strict";
     const EPS = 1e-9;
-
+    const pad = (n) => String(n).padStart(2, "0");
     function approx(a, b) {
         // 상대/절대 혼합 허용 오차
         return Math.abs(a - b) <= Math.max(1, Math.abs(b) * 1e-6);
@@ -195,6 +195,25 @@ sap.ui.define([], function () {
             });
             return nf.format(n);
         },
+        formatSelectedItems: function (text, tokens) {
+            // text = "선택된 항목 ({0})"
+            // tokens = array
+            const count = tokens ? tokens.length : 0;
+            return this.getView().getModel("i18n").getResourceBundle().getText("selectedItems", [count]);
+        },
+        fmtTsLocal: function (v) {
+            if (v == null) return "";
+            const ts = Number(v);
+            if (!Number.isFinite(ts)) return "";
+            const d = new Date(ts);
+            const yyyy = d.getFullYear();
+            const mm = pad(d.getMonth() + 1);
+            const dd = pad(d.getDate());
+            const HH = pad(d.getHours());
+            const MI = pad(d.getMinutes());
+            const SS = pad(d.getSeconds());
+            return `${yyyy}-${mm}-${dd} ${HH}:${MI}:${SS}`;
+        }
 
     }
 });
