@@ -38,7 +38,11 @@ sap.ui.define([
     };
     // === 북마크(앱 내부) 유틸 ===
     const BM_KEY = "zgspkgco0060.bookmarks.v1";
-
+    const BOOKMARK = {
+        headSet: "/BookMark_Head",      // 헤더 엔티티셋 이름
+        itemSet: "/BookMark_Item",      // 아이템 엔티티셋 이름
+        headToItemsNav: "to_Items"      // 헤더→아이템 네비게이션 이름 (Deep Insert용)
+    };
     let oView;               // cached view
     let vVHGL;               // GL Value Help model
 
@@ -628,46 +632,25 @@ sap.ui.define([
             }
         },
 
-        // // GL 계정 OK
-        // onGlAccountMenuConfirm: function (e) {
-        //     try {
-        //         // 스테이징을 커밋하고 그때만 필터 적용
-        //         this._setGLKeys(new Set(this._glStage || []), "gl-ok");
-        //     } finally {
-        //         this._menuOpen = false;
-        //         this._glStage = null;
-        //         this.byId("M_GlAccount")?.close();
-        //     }
-        // },
+        onGlAccountMenuConfirm: function () {
+            try {
+                const keys = Array.from(this._glStage || new Set(this._getStageKeysFromModel()));
+                this._setGLKeys(keys, "menu-ok");        // ★ 여기서만 필터 적용
+            } finally {
+                this.byId("M_GlAccount")?.close();
+                this._menuOpen = false;
+            }
+        },
 
-        // onColumnMenuConfirm: function (e) {
-        //     try {
-        //         this._setGLKeys(new Set(this._glStage || []), "gltext-ok");
-        //     } finally {
-        //         this._menuOpen = false;
-        //         this._glStage = null;
-        //         this.byId("M_GlAccountText")?.close();
-        //     }
-        // },
-       onGlAccountMenuConfirm: function () {
-  try {
-    const keys = Array.from(this._glStage || new Set(this._getStageKeysFromModel()));
-    this._setGLKeys(keys, "menu-ok");        // ★ 여기서만 필터 적용
-  } finally {
-    this.byId("M_GlAccount")?.close();
-    this._menuOpen = false;
-  }
-},
-
-onColumnMenuConfirm: function () {
-  try {
-    const keys = Array.from(this._glStage || new Set(this._getStageKeysFromModel()));
-    this._setGLKeys(keys, "menu-ok");
-  } finally {
-    this.byId("M_GlAccountText")?.close();
-    this._menuOpen = false;
-  }
-},
+        onColumnMenuConfirm: function () {
+            try {
+                const keys = Array.from(this._glStage || new Set(this._getStageKeysFromModel()));
+                this._setGLKeys(keys, "menu-ok");
+            } finally {
+                this.byId("M_GlAccountText")?.close();
+                this._menuOpen = false;
+            }
+        },
 
         onGlAccountMenuCancel: function () {
             // 버리기(필터 미적용)
@@ -856,21 +839,6 @@ onColumnMenuConfirm: function () {
                 this._refreshRowHighlights?.();
             }, 0);
         },
-        onGlAccountMenuSearch: function (ev) {
-            const q = (ev.getParameter("newValue") || "").trim();
-            const b = this.byId("L_GlAccount")?.getBinding("items");
-            if (!b) return;
-            b.filter(q ? new sap.ui.model.Filter({
-                and: false,
-                filters: [
-                    new sap.ui.model.Filter("GLAccount", sap.ui.model.FilterOperator.Contains, q),
-                    new sap.ui.model.Filter("GLAccountLongName", sap.ui.model.FilterOperator.Contains, q),
-                ]
-            }) : []);
-            // 필터 후 현재 스테이징에 맞춰 UI 선택 복원
-            setTimeout(() => this._restoreSelectionsFromSet("L_GlAccount", this._glStage || new Set()), 0);
-        },
-
 
 
         // ========================================================================
@@ -1329,108 +1297,215 @@ onColumnMenuConfirm: function () {
             if (!oTable || !oBinding) return;
             oTable.setBusy(true);
         },
+        // _onTreeTableReceived: async function () {
+        //     const oTable = this.byId(Control.Table.T_Main);
+        //     const oBinding = oTable && oTable.getBinding("rows");
+        //     if (!oTable || !oBinding) return;
+
+        //     oTable.setBusy(true);
+
+        //     // 1) st.tree || st 로 안전하게 꺼내기
+        //     const raw = this._restoreStateFromBookmark || null;
+        //     const st = raw && (raw.tree || raw);   // <-- 핵심 수정
+
+
+        //     // ($filter 지연 적용 시 재적용)
+        //     if (this._deferApplyTableFilters) {
+        //         this._deferApplyTableFilters = false;
+        //         const aBase = this._getTableFilter();
+        //         const aSearch = this._buildSearchFilters(this._lastTableQuery);
+        //         const aCols = Object.entries(this._colFilters || {})
+        //             .map(([p, v]) => this._buildFilterForValueWithType(p, v))
+        //             .flat();
+        //         oBinding.filter(aBase.concat(aSearch, aCols), sap.ui.model.FilterType.Application);
+        //         await this._waitRowsSettled(oTable, 180);
+        //     }
+        //     // 필터가 적용된 "최종 데이터" 기준으로 트리 상태 복원
+        //     if (!this._bInitialExpandDone) {
+        //         this._bInitialExpandDone = true;
+
+        //         if (st) {
+        //             // (1) expandLevel
+        //             if (Number.isInteger(st.expandLevel) && st.expandLevel > 0) {
+        //                 try { oTable.expandToLevel(st.expandLevel); } catch (e) { }
+        //                 await this._waitRowsSettled(oTable, 180);
+        //             }
+        //             // (2) expandedNodes
+        //             if (Array.isArray(st.expandedNodes) && st.expandedNodes.length) {
+        //                 await this._expandNodesByIdWithParents(st.expandedNodes);
+        //                 await this._waitRowsSettled(oTable, 120);
+        //             }
+        //             // (3) collapsedNodes
+        //             if (Array.isArray(st.collapsedNodes) && st.collapsedNodes.length) {
+        //                 await this._collapseNodesById(st.collapsedNodes);
+        //                 await this._waitRowsSettled(oTable, 120);
+        //             }
+        //             this._maxExpandLevel = this._getMaxLevelFromBinding();
+        //             this._curExpandLevel = this._getVisibleMaxLevel();
+        //         } else {
+        //             // 북마크가 없을 때 기본 전체 펼침
+        //             try { oTable.expandToLevel(99); } catch (e) { }
+        //             await this._expandAllDeep(oTable, 30);
+        //             await this._waitRowsSettled(oTable, 200);
+        //             this._maxExpandLevel = this._getMaxLevelFromBinding();
+        //             this._curExpandLevel = this._maxExpandLevel;
+        //         }
+        //     }
+        //     // 선택/스크롤 복원
+        //     if (st) {
+        //         if (st.selectedNodeId != null) this._selectRowByNodeId(st.selectedNodeId);
+        //         if (Number.isFinite(st.firstVisibleRow)) {
+        //             oTable.setFirstVisibleRow(Math.max(0, st.firstVisibleRow | 0));
+        //         }
+        //     }
+
+        //     // 일회성 상태 제거
+        //     this._restoreStateFromBookmark = null;
+
+        //     this._busyUntilFullyExpanded(oTable, { idleMs: 250, stableRepeats: 2, timeoutMs: 15000 });
+        // },
+        // _pinPrimaryColumn: function () {
+        //     const oTable = this.byId(Control.Table.T_Main);
+        //     if (!oTable) return;
+
+        //     // 1) '내역' 컬럼 객체 찾기 (ID 우선, 없으면 바인딩경로로 탐색)
+        //     let col =
+        //         this.byId("COL_NodeText") ||
+        //         (oTable.getColumns().find(c => {
+        //             const p =
+        //                 (c.getFilterProperty && c.getFilterProperty()) ||
+        //                 (c.getSortProperty && c.getSortProperty());
+        //             if (p) return p === "NodeText";
+        //             try {
+        //                 const t = c.getTemplate && c.getTemplate();
+        //                 const b = t && (t.getBinding && (t.getBinding("text") || t.getBinding("value")));
+        //                 return b && b.getPath && b.getPath() === "NodeText";
+        //             } catch (e) { return false; }
+        //         }) || null);
+
+        //     if (!col) return;
+
+        //     // 2) 맨 앞으로 이동
+        //     try {
+        //         oTable.removeColumn(col);
+        //         oTable.insertColumn(col, 0);
+        //     } catch (e) { /* noop */ }
+
+        //     // 3) 첫 컬럼 고정 (필요 시 숫자 늘리기)
+        //     try {
+        //         if ((oTable.getFixedColumnCount && oTable.getFixedColumnCount() < 1) ||
+        //             !oTable.getFixedColumnCount) {
+        //             oTable.setFixedColumnCount(1);
+        //         }
+        //     } catch (e) { /* noop */ }
+        // },
         _onTreeTableReceived: async function () {
-            const oTable = this.byId(Control.Table.T_Main);
+            const oTable = this.byId("T_Main");
             const oBinding = oTable && oTable.getBinding("rows");
             if (!oTable || !oBinding) return;
 
             oTable.setBusy(true);
-
-            // 1) st.tree || st 로 안전하게 꺼내기
-            const raw = this._restoreStateFromBookmark || null;
-            const st = raw && (raw.tree || raw);   // <-- 핵심 수정
-
-
-            // ($filter 지연 적용 시 재적용)
-            if (this._deferApplyTableFilters) {
-                this._deferApplyTableFilters = false;
-                const aBase = this._getTableFilter();
-                const aSearch = this._buildSearchFilters(this._lastTableQuery);
-                const aCols = Object.entries(this._colFilters || {})
-                    .map(([p, v]) => this._buildFilterForValueWithType(p, v))
-                    .flat();
-                oBinding.filter(aBase.concat(aSearch, aCols), sap.ui.model.FilterType.Application);
-                await this._waitRowsSettled(oTable, 180);
-            }
-            // 필터가 적용된 "최종 데이터" 기준으로 트리 상태 복원
-            if (!this._bInitialExpandDone) {
-                this._bInitialExpandDone = true;
-
-                if (st) {
-                    // (1) expandLevel
-                    if (Number.isInteger(st.expandLevel) && st.expandLevel > 0) {
-                        try { oTable.expandToLevel(st.expandLevel); } catch (e) { }
-                        await this._waitRowsSettled(oTable, 180);
-                    }
-                    // (2) expandedNodes
-                    if (Array.isArray(st.expandedNodes) && st.expandedNodes.length) {
-                        await this._expandNodesByIdWithParents(st.expandedNodes);
-                        await this._waitRowsSettled(oTable, 120);
-                    }
-                    // (3) collapsedNodes
-                    if (Array.isArray(st.collapsedNodes) && st.collapsedNodes.length) {
-                        await this._collapseNodesById(st.collapsedNodes);
-                        await this._waitRowsSettled(oTable, 120);
-                    }
-                    this._maxExpandLevel = this._getMaxLevelFromBinding();
-                    this._curExpandLevel = this._getVisibleMaxLevel();
-                } else {
-                    // 북마크가 없을 때 기본 전체 펼침
-                    try { oTable.expandToLevel(99); } catch (e) { }
-                    await this._expandAllDeep(oTable, 30);
-                    await this._waitRowsSettled(oTable, 200);
-                    this._maxExpandLevel = this._getMaxLevelFromBinding();
-                    this._curExpandLevel = this._maxExpandLevel;
-                }
-            }
-            // 선택/스크롤 복원
-            if (st) {
-                if (st.selectedNodeId != null) this._selectRowByNodeId(st.selectedNodeId);
-                if (Number.isFinite(st.firstVisibleRow)) {
-                    oTable.setFirstVisibleRow(Math.max(0, st.firstVisibleRow | 0));
-                }
-            }
-
-            // 일회성 상태 제거
-            this._restoreStateFromBookmark = null;
-
-            this._busyUntilFullyExpanded(oTable, { idleMs: 250, stableRepeats: 2, timeoutMs: 15000 });
-        },
-        _pinPrimaryColumn: function () {
-            const oTable = this.byId(Control.Table.T_Main);
-            if (!oTable) return;
-
-            // 1) '내역' 컬럼 객체 찾기 (ID 우선, 없으면 바인딩경로로 탐색)
-            let col =
-                this.byId("COL_NodeText") ||
-                (oTable.getColumns().find(c => {
-                    const p =
-                        (c.getFilterProperty && c.getFilterProperty()) ||
-                        (c.getSortProperty && c.getSortProperty());
-                    if (p) return p === "NodeText";
-                    try {
-                        const t = c.getTemplate && c.getTemplate();
-                        const b = t && (t.getBinding && (t.getBinding("text") || t.getBinding("value")));
-                        return b && b.getPath && b.getPath() === "NodeText";
-                    } catch (e) { return false; }
-                }) || null);
-
-            if (!col) return;
-
-            // 2) 맨 앞으로 이동
             try {
-                oTable.removeColumn(col);
-                oTable.insertColumn(col, 0);
-            } catch (e) { /* noop */ }
+                // 1) 북마크 트리 상태 안전 취득 (tableState.tree 또는 tableState)
+                const rawState = this._restoreStateFromBookmark || null;
+                const st = rawState && (rawState.tree || rawState) || null;
 
-            // 3) 첫 컬럼 고정 (필요 시 숫자 늘리기)
-            try {
-                if ((oTable.getFixedColumnCount && oTable.getFixedColumnCount() < 1) ||
-                    !oTable.getFixedColumnCount) {
-                    oTable.setFixedColumnCount(1);
+                // 2) 지연된 필터를 '반드시' 먼저 적용
+                if (this._deferApplyTableFilters) {
+                    this._deferApplyTableFilters = false;
+                    const base = this._getTableFilter();
+                    const srch = this._buildSearchFilters(this._lastTableQuery);
+                    const colf = Object.entries(this._colFilters || {})
+                        .map(([p, v]) => this._buildFilterForValueWithType(p, v))
+                        .flat();
+                    oBinding.filter(base.concat(srch, colf), sap.ui.model.FilterType.Application);
+                    await this._waitRowsSettled(oTable, 180);
                 }
-            } catch (e) { /* noop */ }
+
+                // 3) 트리 상태 복원 (리바인드당 1회)
+                if (!this._bInitialExpandDone) {
+                    this._bInitialExpandDone = true;
+
+                    if (st && (Array.isArray(st.expandedNodes) || Array.isArray(st.collapsedNodes) || Number.isInteger(st.expandLevel))) {
+                        // 3-1) 기준 레벨로 맞춘 뒤
+                        const lvl = Number.isInteger(st.expandLevel) ? Math.max(0, st.expandLevel) : 0;
+                        try { oTable.expandToLevel(lvl); } catch (e) { }
+                        await this._waitRowsSettled(oTable, 120);
+
+                        // 3-2) 필요한 노드만 '부모부터' 확장
+                        if (Array.isArray(st.expandedNodes) && st.expandedNodes.length) {
+                            await this._expandNodesByIdWithParents(st.expandedNodes);
+                            await this._waitRowsSettled(oTable, 120);
+                        }
+
+                        // 3-3) 명시적으로 접으라고 저장된 노드는 접기
+                        if (Array.isArray(st.collapsedNodes) && st.collapsedNodes.length) {
+                            await this._collapseNodesById(st.collapsedNodes);
+                            await this._waitRowsSettled(oTable, 120);
+                        }
+                    } else {
+                        // 북마크 없으면 기본값(필요시 1~2레벨만)
+                        try { oTable.expandToLevel(5); } catch (e) { }
+                        await this._waitRowsSettled(oTable, 80);
+                    }
+
+                    // 선택/스크롤 복원
+                    if (st && st.selectedNodeId != null) this._selectRowByNodeId(st.selectedNodeId);
+                    if (st && Number.isFinite(st.firstVisibleRow)) {
+                        oTable.setFirstVisibleRow(Math.max(0, st.firstVisibleRow | 0));
+                    }
+
+                    // 일회성 상태 제거
+                    this._restoreStateFromBookmark = null;
+                }
+
+                // 부가 상태 업데이트
+                this._maxExpandLevel = this._getMaxLevelFromBinding?.();
+                this._curExpandLevel = this._getVisibleMaxLevel?.();
+
+                // (선택) 전체 노드 로딩 안정화 대기
+                this._busyUntilFullyExpanded?.(oTable, { idleMs: 250, stableRepeats: 2, timeoutMs: 15000 });
+            } catch (e) {
+                // ★ 절대 객체를 stringify 하지 말고 메시지만 표시
+                jQuery.sap.log.error(e?.message || String(e));
+                sap.m.MessageBox.error("트리 상태 적용 중 오류가 발생했습니다.\n" + (e?.message || ""));
+            } finally {
+                oTable.setBusy(false); // ★ 반드시 해제
+            }
         },
+        _getTreeStateForBookmark: function () {
+            const oTable = this.byId("T_Main");
+            const ob = oTable?.getBinding("rows");
+            const out = {
+                expandLevel: 0,
+                expandedNodes: [],
+                collapsedNodes: [],
+                firstVisibleRow: oTable ? oTable.getFirstVisibleRow() | 0 : 0,
+                selectedNodeId: null
+            };
+            if (!ob) return out;
+
+            const len = ob.getLength();
+            for (let i = 0; i < len; i++) {
+                const ctx = ob.getContextByIndex(i); if (!ctx) continue;
+                const o = ctx.getObject();
+                const id = String(o.Node ?? o.NodeID ?? "");
+                const lvl = Number(o.HierarchyLevel ?? 0) | 0;
+                const ds = String(o.DrillState ?? o.Drillstate ?? "").toLowerCase();
+                if (lvl > out.expandLevel) out.expandLevel = lvl;
+                if (id) {
+                    if (ds === "expanded") out.expandedNodes.push(id);
+                    if (ds === "collapsed") out.collapsedNodes.push(id);
+                }
+            }
+            const selIdx = oTable.getSelectedIndex?.() ?? -1;
+            if (selIdx > -1) {
+                const so = ob.getContextByIndex(selIdx)?.getObject();
+                out.selectedNodeId = so ? String(so.Node ?? so.NodeID ?? "") : null;
+            }
+            return out;
+        },
+
 
         _applyColumnLayout: function (layout = []) {
             const oTable = this.byId(Control.Table.T_Main);
@@ -2200,23 +2275,24 @@ onColumnMenuConfirm: function () {
         // ========================================================================
         // TREE & FILTERING HELPERS
         // ========================================================================
-        _buildTreeFromFlat: function (flat) {
-            const map = Object.create(null);
-            (flat || []).forEach(n => {
-                const id = n.Node != null ? n.Node : n.NodeID;
-                if (id == null) return;
-                map[id] = map[id] || { children: [] };
-                Object.assign(map[id], n, { children: map[id].children || [] });
-            });
+        _buildTreeFromFlat: function (rows) {
+            const byId = Object.create(null);
             const roots = [];
-            (flat || []).forEach(n => {
-                const id = n.Node != null ? n.Node : n.NodeID;
-                const pid = (n.ParentNodeID != null ? n.ParentNodeID : n.ParentNode);
-                if (pid != null && map[pid]) map[pid].children.push(map[id]);
-                else roots.push(map[id]);
+            rows.forEach(r => {
+                const id = String(r.Node);
+                byId[id] = Object.assign({ children: [] }, r);
+            });
+            rows.forEach(r => {
+                const id = String(r.Node);
+                const p = r.ParentNodeID == null ? null : String(r.ParentNodeID);
+                const node = byId[id];
+                if (p && byId[p]) byId[p].children.push(node);
+                else roots.push(node);               // ★ null/undefined/"" -> 루트
             });
             return roots;
         },
+
+
 
         _filterTreeByQuery: function (nodes, sQuery) {
             const Q = this._normStr(sQuery);
@@ -2720,30 +2796,6 @@ onColumnMenuConfirm: function () {
             return out;
         },
 
-
-        // === 저장/불러오기 UI ===
-        onBookmarkSave: async function () {
-            const state = await this._captureAppState();
-            const dlg = new sap.m.Dialog({
-                title: "북마크 저장",
-                content: [new sap.m.Input("BM_NAME",)],
-                buttons: [
-                    new sap.m.Button({
-                        text: "저장", type: "Emphasized",
-                        press: async () => {
-                            const name = sap.ui.getCore().byId("BM_NAME").getValue().trim() || "내 북마크";
-                            await this._bm_save(name, state);
-                            dlg.close();
-                            sap.m.MessageToast.show("북마크가 저장되었습니다.");
-                        }
-                    }),
-                    new sap.m.Button({ text: "취소", press: () => dlg.close() })
-                ],
-                afterClose: () => dlg.destroy()
-            });
-            this.getView().addDependent(dlg);
-            dlg.open();
-        },
         // 1) PersoController가 준비될 때까지 기다리는 헬퍼 (최대 2초)
         _ensureTPCReady: function () {
             if (this._oTPC) return Promise.resolve();
@@ -2826,108 +2878,515 @@ onColumnMenuConfirm: function () {
             this._applyGroupRowColors?.();
         },
 
+        // onBookmarkManage: async function () {
+        //     const items = await this._bm_all();
+        //     if (!items.length) {
+        //         sap.m.MessageToast.show("저장된 북마크가 없습니다.");
+        //         return;
+        //     }
 
+        //     const oModel = new sap.ui.model.json.JSONModel({ items, selCount: 0 });
+        //     const oList = new sap.m.List({
+        //         mode: sap.m.ListMode.MultiSelect,
+        //         includeItemInSelection: true,
+        //         growing: true,
+        //         items: {
+        //             path: "/items",
+        //             template: new sap.m.StandardListItem({
+        //                 title: "{name}",
+        //                 description: {
+        //                     parts: [{ path: "createdAt" }],
+        //                     formatter: (v) => this.formatter.fmtTsLocal(v)   // <- 래퍼로 확실히 호출
+        //                 },
+        //                 icon: "sap-icon://bookmark",
+        //                 selected: false,
+        //                 type: "Inactive"
+        //             })
+        //         }
+        //     });
 
-        // 3) 불러오기 다이얼로그 (선택 → 적용)
-        // 북마크 관리: 체크 선택 → [적용]으로 불러오기, [삭제]로 다중 삭제
-        onBookmarkManage: async function () {
-            const items = await this._bm_all();
-            if (!items.length) {
-                sap.m.MessageToast.show("저장된 북마크가 없습니다.");
-                return;
+        //     // 선택 개수 → 버튼 활성화 바인딩용
+        //     oList.attachSelectionChange(() => {
+        //         oModel.setProperty("/selCount", (oList.getSelectedItems() || []).length);
+        //     });
+        //     const dlg = new sap.m.Dialog({
+        //         title: "북마크 관리",
+        //         contentWidth: "520px",
+        //         contentHeight: "60vh",
+        //         stretchOnPhone: true,
+        //         content: [oList],
+        //         buttons: [
+        //             // 적용(불러오기): 하나만 선택 시 가능
+        //             new sap.m.Button({
+        //                 text: "적용",
+        //                 type: "Emphasized",
+        //                 enabled: "{= ${/selCount} === 1 }",
+        //                 press: async () => {
+        //                     const sel = oList.getSelectedItems() || [];
+        //                     if (sel.length !== 1) {
+        //                         sap.m.MessageToast.show("적용은 하나만 선택해 주세요.");
+        //                         return;
+        //                     }
+        //                     const bm = sel[0].getBindingContext().getObject();
+        //                     if (bm && bm.state) {
+        //                         await this._applyAppState(bm.state);
+        //                         dlg.close();
+        //                     }
+        //                 }
+        //             }),
+        //             // 삭제: 다중 가능
+        //             new sap.m.Button({
+        //                 text: "삭제",
+        //                 type: "Negative",
+        //                 enabled: "{= ${/selCount} > 0 }",
+        //                 press: () => {
+        //                     const sel = oList.getSelectedItems() || [];
+        //                     if (!sel.length) return;
+
+        //                     sap.m.MessageBox.confirm(`선택한 ${sel.length}개 북마크를 삭제할까요?`, {
+        //                         actions: [sap.m.MessageBox.Action.OK, sap.m.MessageBox.Action.CANCEL],
+        //                         onClose: (act) => {
+        //                             if (act !== sap.m.MessageBox.Action.OK) return;
+
+        //                             sel.forEach(it => {
+        //                                 const id = it.getBindingContext().getObject().id;
+        //                                 this._bm_delete(id);
+        //                             });
+
+        //                             // 목록 새로고침 & 상태 초기화
+        //                             oModel.setProperty("/items", this._bm_all());
+        //                             oList.removeSelections(true);
+        //                             oModel.setProperty("/selCount", 0);
+        //                             sap.m.MessageToast.show("삭제되었습니다.");
+        //                         }
+        //                     });
+        //                 }
+        //             }),
+        //             new sap.m.Button({ text: "닫기", press: () => dlg.close() })
+        //         ],
+        //         afterClose: () => dlg.destroy()
+        //     });
+
+        //     dlg.setModel(oModel);
+        //     this.getView().addDependent(dlg);
+        //     dlg.open();
+        // },
+        // 트리 확장 키 수집: 현재 바인딩에 보이는 노드들 중 '펼침' 상태만
+        _captureTreeExpandKeys: function (oTable, keyProp = "Node") {
+            const ob = oTable.getBinding("rows");
+            if (!ob) return [];
+            const keys = [];
+            const len = ob.getLength();
+            for (let i = 0; i < len; i++) {
+                if (!oTable.isExpanded || !oTable.isExpanded(i)) continue;   // 펼쳐진 행만
+                const ctx = oTable.getContextByIndex(i);
+                if (!ctx) continue;
+                const k = ctx.getProperty(keyProp);
+                if (k != null && k !== "") keys.push(String(k));
             }
+            return keys;
+        },
 
-            const oModel = new sap.ui.model.json.JSONModel({ items, selCount: 0 });
-            const oList = new sap.m.List({
+        onBookmarkLoad: async function () {
+            // 1) 헤더 로드
+            let heads = [];
+            try {
+                heads = await this._loadBookmarkHeads();
+            } catch (e) {
+                jQuery.sap.log.error(e?.message || e);
+                return sap.m.MessageBox.error("북마크 목록을 불러오지 못했습니다.");
+            }
+            if (!heads.length) return sap.m.MessageToast.show("저장된 북마크가 없습니다.");
+
+            // 2) 모델 준비 (선택 아이디/개수는 '순수 값'만 보관)
+            const jm = new sap.ui.model.json.JSONModel({
+                items: heads,
+                selectedIds: [],
+                selCount: 0
+            });
+
+            // 3) 리스트
+            const list = new sap.m.List({
                 mode: sap.m.ListMode.MultiSelect,
                 includeItemInSelection: true,
                 growing: true,
                 items: {
                     path: "/items",
+                    templateShareable: false,
                     template: new sap.m.StandardListItem({
-                        title: "{name}",
-                        description: {
-                            parts: [{ path: "createdAt" }],
-                            formatter: (v) => this.formatter.fmtTsLocal(v)   // <- 래퍼로 확실히 호출
-                        },
+                        title: "{Bookmarkname}",
+                        description: "{Bookmarkid}",
                         icon: "sap-icon://bookmark",
-                        selected: false,
                         type: "Inactive"
                     })
                 }
             });
 
-            // 선택 개수 → 버튼 활성화 바인딩용
-            oList.attachSelectionChange(() => {
-                oModel.setProperty("/selCount", (oList.getSelectedItems() || []).length);
+            list.attachSelectionChange(() => {
+                const sel = list.getSelectedItems() || [];
+                // ✅ 컨트롤을 모델에 넣지 말고, 순수 값(아이디)만
+                const ids = sel.map(it => it.getBindingContext().getObject().Bookmarkid);
+                jm.setProperty("/selectedIds", ids);
+                jm.setProperty("/selCount", ids.length);
             });
 
+            // 4) 다이얼로그 (★ 버튼 바인딩이 보이도록 다이얼로그에도 모델 설정)
             const dlg = new sap.m.Dialog({
-                title: "북마크 관리",
+                id: this.createId("BM_LoadDlg"),
+                title: "북마크 불러오기",
                 contentWidth: "520px",
                 contentHeight: "60vh",
                 stretchOnPhone: true,
-                content: [oList],
+                content: [list],
                 buttons: [
-                    // 적용(불러오기): 하나만 선택 시 가능
+                    // 적용(하나만)
                     new sap.m.Button({
                         text: "적용",
                         type: "Emphasized",
+                        // ★ 표현식 바인딩으로 정확히
                         enabled: "{= ${/selCount} === 1 }",
                         press: async () => {
-                            const sel = oList.getSelectedItems() || [];
-                            if (sel.length !== 1) {
-                                sap.m.MessageToast.show("적용은 하나만 선택해 주세요.");
-                                return;
-                            }
-                            const bm = sel[0].getBindingContext().getObject();
-                            if (bm && bm.state) {
-                                await this._applyAppState(bm.state);
+                            const sel = list.getSelectedItems() || [];
+                            if (sel.length !== 1) return sap.m.MessageToast.show("적용은 하나만 선택하세요.");
+                            const head = sel[0].getBindingContext().getObject();
+                            dlg.setBusy(true);
+                            try {
+                                const items = await this._loadBookmarkItems(head.Bookmarkid);
+                                await this._applyBookmarkItemsToTable(items);
                                 dlg.close();
+                            } catch (e) {
+                                const msg = this._formatError(e, "북마크 적용 실패");
+                                jQuery.sap.log.error(msg);
+                                sap.m.MessageBox.error(msg);
+                            }
+
+                            finally {
+                                dlg.setBusy(false);
                             }
                         }
                     }),
-                    // 삭제: 다중 가능
+                    // 삭제(다중)
                     new sap.m.Button({
                         text: "삭제",
                         type: "Negative",
                         enabled: "{= ${/selCount} > 0 }",
                         press: () => {
-                            const sel = oList.getSelectedItems() || [];
+                            const sel = list.getSelectedItems() || [];
                             if (!sel.length) return;
-
                             sap.m.MessageBox.confirm(`선택한 ${sel.length}개 북마크를 삭제할까요?`, {
-                                actions: [sap.m.MessageBox.Action.OK, sap.m.MessageBox.Action.CANCEL],
-                                onClose: (act) => {
+                                onClose: async (act) => {
                                     if (act !== sap.m.MessageBox.Action.OK) return;
-
-                                    sel.forEach(it => {
-                                        const id = it.getBindingContext().getObject().id;
-                                        this._bm_delete(id);
-                                    });
-
-                                    // 목록 새로고침 & 상태 초기화
-                                    oModel.setProperty("/items", this._bm_all());
-                                    oList.removeSelections(true);
-                                    oModel.setProperty("/selCount", 0);
-                                    sap.m.MessageToast.show("삭제되었습니다.");
+                                    dlg.setBusy(true);
+                                    try {
+                                        for (const it of sel) {
+                                            const id = it.getBindingContext().getObject().Bookmarkid;
+                                            await this._deleteBookmarkFromDB(id);
+                                        }
+                                        const next = await this._loadBookmarkHeads();
+                                        // 선택 상태/카운트 초기화
+                                        jm.setData({ items: next, selectedIds: [], selCount: 0 });
+                                        list.removeSelections(true);
+                                        sap.m.MessageToast.show("삭제되었습니다.");
+                                    } catch (e) {
+                                        jQuery.sap.log.error(e?.message || e);
+                                        sap.m.MessageBox.error("삭제 중 오류가 발생했습니다.");
+                                    } finally {
+                                        dlg.setBusy(false);
+                                    }
                                 }
                             });
                         }
                     }),
                     new sap.m.Button({ text: "닫기", press: () => dlg.close() })
-                ],
-                afterClose: () => dlg.destroy()
+                ]
             });
 
-            dlg.setModel(oModel);
+            // ★ 모델을 다이얼로그에 세팅 (버튼 바인딩이 여기서 본다)
+            dlg.setModel(jm);
+
+            // 5) 정리 & 오픈
             this.getView().addDependent(dlg);
+            dlg.attachAfterClose(() => dlg.destroy());
             dlg.open();
         },
+        _formatError(e, prefix) {
+            // 가능한 문자열만 뽑아서 반환
+            const body =
+                (e && e.response && (e.response.body || e.response.responseText)) ||
+                e?.message ||
+                e?.statusText ||
+                "";
 
-        // 필요 시: 기존 onBookmarkLoad는 이 다이얼로그만 띄우게 연결
-        onBookmarkLoad: function () {
-            this.onBookmarkManage();
+            const msg = (body && String(body)) || String(e);  // ← 항상 문자열 보장
+            return (prefix ? prefix + " - " : "") + msg;
+        },
+
+
+        _onBookmarkLoadConfirm: async function (ev, dlg) {
+            try {
+                if (!dlg || !dlg.close) {
+                    jQuery.sap.log.error("SelectDialog instance not found in _onBookmarkLoadConfirm");
+                    return;
+                }
+
+                const ctx =
+                    (ev.getParameter("selectedContexts") && ev.getParameter("selectedContexts")[0]) ||
+                    (ev.getParameter("selectedItem") && ev.getParameter("selectedItem").getBindingContext && ev.getParameter("selectedItem").getBindingContext());
+
+                if (!ctx) { dlg.close(); return; }
+
+                const head = ctx.getObject && ctx.getObject();
+                if (!head || !head.Bookmarkid) { dlg.close(); return; }
+
+                dlg.setBusy(true);
+                const items = await this._loadBookmarkItems(head.Bookmarkid);
+                await this._applyBookmarkItemsToTable(items);
+                sap.m.MessageToast.show("북마크를 적용했습니다.");
+            } catch (e) {
+                sap.m.MessageBox.error("북마크 적용 중 오류\n" + (e && e.message || e));
+            } finally {
+                if (dlg && dlg.setBusy) dlg.setBusy(false);
+                if (dlg && dlg.close) dlg.close();
+            }
+        },
+
+        _onBookmarkCancel: function () {
+            const dlg = this._bmLoadDlg;
+            if (dlg && dlg.close) dlg.close();
+        },
+
+        _cleanForModel(obj) {
+            const seen = new WeakSet();
+            const isUI5 = v => v && (v.getMetadata || v.getBinding || v.attachEvent || v.oParent);
+
+            const walk = v => {
+                if (v == null || typeof v !== "object") return v;
+                if (seen.has(v)) return undefined;
+                if (isUI5(v)) return undefined;
+                seen.add(v);
+
+                if (Array.isArray(v)) return v.map(walk).filter(x => x !== undefined);
+
+                const out = {};
+                for (const k of Object.keys(v)) {
+                    if (k === "parent" || k === "__parent" || k === "__ctx") continue; // 순환 의심 키 제거
+                    const nv = walk(v[k]);
+                    if (nv !== undefined) out[k] = nv;
+                }
+                return out;
+            };
+            return walk(obj);
+        },
+        // keys: Set<string>  (Node 또는 HierarchyID 값)
+        _restoreExpandStateByKeys: async function (oTable, keys, keyProp = "Node", maxPass = 6) {
+            if (!oTable || !keys || keys.size === 0) return;
+            for (let pass = 0; pass < maxPass; pass++) {
+                let any = false;
+                const ob = oTable.getBinding("rows");
+                const len = ob.getLength();
+                for (let i = 0; i < len; i++) {
+                    const ctx = oTable.getContextByIndex(i);
+                    if (!ctx) continue;
+                    const k = String(ctx.getProperty(keyProp));
+                    if (keys.has(k) && !oTable.isExpanded(i)) {
+                        try { oTable.expand(i); any = true; } catch (e) { }
+                    }
+                }
+                if (!any) break;  // 더 이상 열릴 게 없으면 종료
+                await this._waitRowsSettled(oTable, 60);
+            }
+        },
+
+_applyBookmarkItemsToTable: async function (dbItems) {
+  const oTable = this.byId("T_Main");
+  if (!oTable) return;
+
+  // 1) 평면 → 트리 (정렬 유지)
+  const flat = (dbItems || [])
+    .sort((a,b)=>(a.Sortindex|0)-(b.Sortindex|0))
+    .map(it => ({
+      Key: (String(it.Hierarchyid||"") + "|" + String(it.Node||"")), // 유니크 키(계층+노드)
+      ParentKey: (String(it.Hierarchyid||"") + "|" + String(it.Parentnodeid||"")),
+      HierarchyID: it.Hierarchyid,
+      Node: (it.Node != null ? String(it.Node) : null),
+      ParentNodeID: (it.Parentnodeid != null ? String(it.Parentnodeid) : null),
+      GlAccount: it.Glaccount ? String(it.Glaccount) : "",
+      GlAccountText: it.Glaccounttext || "",
+      NodeText: it.Nodetext || "",
+      HierarchyLevel: Number(it.Hierarchylevel),
+      DrillState: (it.Drillstate || "").toLowerCase() // 'expanded' | 'collapsed' | 'leaf'
+    }));
+
+  const byKey = new Map(flat.map(o => [o.Key, Object.assign(o, { children: [] })]));
+  const roots = [];
+  for (const n of byKey.values()) {
+    if (n.ParentNodeID && byKey.has(n.ParentKey)) byKey.get(n.ParentKey).children.push(n);
+    else roots.push(n);
+  }
+
+  // 2) JSON 모델로 트리 바인딩
+  const m = new sap.ui.model.json.JSONModel({ roots });
+  oTable.unbindRows();
+  oTable.setModel(m, "client");
+  oTable.bindRows({ path: "client>/roots", parameters: { arrayNames: ["children"] } });
+  await this._waitRowsSettled(oTable, 120);
+
+  // 3) 먼저 0레벨로(기본 모두 접힘)
+  try { oTable.expandToLevel(0); } catch(e) {}
+  await this._waitRowsSettled(oTable, 80);
+
+  // 4) 저장된 expanded 노드만 부모부터 확장
+  const expandedKeys = flat
+    .filter(x => x.DrillState === "expanded")
+    .map(x => x.Key);
+
+  await this._expandNodesByKeyWithParents(expandedKeys); // 아래 헬퍼 참고
+  await this._waitRowsSettled(oTable, 120);
+
+  // (선택) 선택/스크롤 복원 필요시 여기서 적용
+},
+
+// Key(=Hierarchyid|Node)로 행 인덱스를 찾아 부모→자식 순서로 expand
+_expandNodesByKeyWithParents: async function (keys) {
+  if (!Array.isArray(keys) || !keys.length) return;
+  const oTable = this.byId("T_Main");
+  const ob = oTable.getBinding("rows");
+
+  // 부모 경로 만들기
+  const uniq = new Set(keys);
+  const need = [];
+  for (const k of uniq) {
+    const parts = k.split("|");
+    const hier = parts[0];
+    const node = parts[1];
+    // parent 체인을 복원 (ParentKey는 저장된 flat에서 계산 가능)
+    // 간단히: 경로상 상위 키들이 byKey에 있다면 모두 포함 (여기서는 prefix 규칙 안 쓰고, 런타임에서 행에서 역추적)
+    need.push(k);
+  }
+
+  // 찾을 때까지 반복(트리 펼치면서 인덱스가 생김)
+  const findRowByKey = (key) => {
+    const len = ob.getLength();
+    for (let i = 0; i < len; i++) {
+      const ctx = ob.getContextByIndex(i);
+      const o = ctx && ctx.getObject && ctx.getObject();
+      const k = String(o.HierarchyID||"") + "|" + String(o.Node||"");
+      if (k === key) return i;
+    }
+    return -1;
+  };
+
+  for (const k of need) {
+    const row = findRowByKey(k);
+    if (row > -1) {
+      try { oTable.expand(row); } catch(e) {}
+      await this._waitRowsSettled(oTable, 40);
+    }
+  }
+},
+
+
+        _attachDrillStateSync: function () {
+            const oTable = this.byId("T_Main");
+            const ob = oTable && oTable.getBinding("rows");
+            if (!oTable || !ob) return;
+
+            // 중복 연결 방지
+            if (this._drillSyncAttached) return;
+            this._drillSyncAttached = true;
+
+            oTable.attachToggleOpenState((ev) => {
+                const rowIndex = ev.getParameter("rowIndex");
+                const expanded = !!ev.getParameter("expanded");
+                const ctx = ob.getContextByIndex(rowIndex);
+                const o = ctx && ctx.getObject && ctx.getObject();
+                if (!o) return;
+
+                // 리프는 저장 안 함
+                const isLeaf = !!o.GlAccount || String(o.DrillState || "").toLowerCase() === "leaf";
+                if (isLeaf) return;
+
+                // 바인딩 객체 갱신 → JSON 모델에 DrillState 동기화
+                o.DrillState = expanded ? "expanded" : "collapsed";
+                const m = oTable.getModel("client");
+                if (m) m.checkUpdate(true);
+            });
+        },
+
+
+        _collectBookmarkItemsForDB_UI: function () {
+            const oTable = this.byId("T_Main");
+            const ob = oTable && oTable.getBinding("rows");
+            if (!oTable || !ob) return [];
+
+            const len = ob.getLength();
+            const out = [];
+
+            for (let i = 0; i < len; i++) {
+                const o = ob.getContextByIndex(i)?.getObject?.();
+                if (!o) continue;
+
+                // 그룹/리프 판단
+                const isLeaf = !!o.GlAccount || String(o.DrillState || "").toLowerCase() === "leaf";
+                let drill = "leaf";
+                if (!isLeaf) {
+                    // ★ UI 실제 상태로 기록
+                    drill = oTable.isExpanded(i) ? "expanded" : "collapsed";
+                }
+
+                const lv = Number(o.HierarchyLevel);
+                out.push({
+                    Bookmark_Item: this._guid36(), // Edm.Guid
+                    Hierarchyid: (o.HierarchyID || o.HierarchyId || "").slice(0, 50),
+                    Node: String(o.Node != null ? o.Node : (o.NodeID ?? "")).slice(0, 50),
+                    Parentnodeid: String(o.ParentNodeID != null ? o.ParentNodeID : (o.ParentNode ?? "")).slice(0, 50),
+                    Glaccount: String(o.GlAccount || "").toUpperCase().slice(0, 10),
+                    Glaccounttext: (o.GlAccountText || "").slice(0, 255),
+                    Nodetext: (o.NodeText || "").slice(0, 255),
+                    Hierarchylevel: String(Number.isFinite(lv) ? lv : 1), // Edm.String(6)
+                    Drillstate: drill,                                     // ★ 여기!
+                    Sortindex: String(i),                                  // Int64는 문자열로
+                    Top: (Number.isFinite(lv) && lv === 1) ? 1 : 0         // Edm.Int32
+                });
+            }
+            return out;
+        },
+
+        _restoreExpandStateFromDB: async function (expandedItems /* from DB */) {
+            const oTable = this.byId("T_Main");
+            const ob = oTable.getBinding("rows");
+            if (!ob) return;
+
+            const byLevel = {};
+            expandedItems.forEach(x => {
+                if ((x.Drillstate || "").toLowerCase() === "expanded") {
+                    const lv = Number(x.Hierarchylevel) || 1;
+                    (byLevel[lv] ||= []).push(String(x.Node || x.Nodeid || ""));
+                }
+            });
+            const levels = Object.keys(byLevel).map(Number).sort((a, b) => a - b);
+
+            const findIndexByNode = (node) => {
+                const len = ob.getLength();
+                for (let i = 0; i < len; i++) {
+                    const ctx = ob.getContextByIndex(i);
+                    const o = ctx && ctx.getObject();
+                    const cur = String(o?.Node ?? o?.NodeID ?? "");
+                    if (cur === node) return i;
+                }
+                return -1;
+            };
+
+            try { oTable.collapseAll?.(); } catch (e) { }
+            await this._waitRowsSettled(oTable, 80);
+
+            for (const lv of levels) {
+                for (const node of byLevel[lv]) {
+                    const idx = findIndexByNode(node);
+                    if (idx >= 0) oTable.expand(idx);
+                }
+                await this._waitRowsSettled(oTable, 60);
+            }
         },
 
 
@@ -3628,8 +4087,36 @@ onColumnMenuConfirm: function () {
             this._restoreSelectionsInList("L_GlAccountText");
         },
         // ========================================================
-        // GLACCOUNT 메뉴 오픈
+        // Column Filter
         // ========================================================
+        onGlAccountMenuSearch: function (ev) {
+            const q = (ev.getParameter("newValue") || "").trim();
+            const b = this.byId("L_GlAccount")?.getBinding("items");
+            if (!b) return;
+            b.filter(q ? new sap.ui.model.Filter({
+                and: false,
+                filters: [
+                    new sap.ui.model.Filter("GLAccount", sap.ui.model.FilterOperator.Contains, q),
+                    new sap.ui.model.Filter("GLAccountLongName", sap.ui.model.FilterOperator.Contains, q),
+                ]
+            }) : []);
+            // 필터 후 현재 스테이징에 맞춰 UI 선택 복원
+            setTimeout(() => this._restoreSelectionsFromSet("L_GlAccount", this._glStage || new Set()), 0);
+        },
+        onGlAccountTextMenuSearch: function (ev) {
+            const q = (ev.getParameter("newValue") || "").trim();
+            const b = this.byId("L_GlAccountText")?.getBinding("items");
+            if (!b) return;
+            b.filter(q ? new sap.ui.model.Filter({
+                and: false,
+                filters: [
+                    new sap.ui.model.Filter("GLAccount", sap.ui.model.FilterOperator.Contains, q),
+                    new sap.ui.model.Filter("GLAccountLongName", sap.ui.model.FilterOperator.Contains, q),
+                ]
+            }) : []);
+            // 필터 후 현재 스테이징에 맞춰 UI 선택 복원
+            setTimeout(() => this._restoreSelectionsFromSet("L_GlAccountText", this._glStage || new Set()), 0);
+        },
         onGlAccountMenuBeforeOpen: async function () {
             try {
                 // 1) 전량 데이터 로딩 (캐시 사용)
@@ -3675,7 +4162,7 @@ onColumnMenuConfirm: function () {
                     template: new sap.m.StandardListItem({
                         title: "{GLALL>GLAccount}",
                         description: "{GLALL>GLAccountLongName}",
-                       selected: "{= ${GLALL>__sel} === true }" 
+                        selected: "{= ${GLALL>__sel} === true }"
                     })
                 });
 
@@ -3694,15 +4181,6 @@ onColumnMenuConfirm: function () {
                 const prior = new Set([...(this._glKeys || new Set())]);
                 (oMI.getTokens() || []).forEach(t => prior.add(String(t.getKey())));
 
-                // setTimeout(() => {
-                //     (oList.getItems() || []).forEach(item => {
-                //         const k = item.getBindingContext("GLALL")?.getProperty("GLAccount");
-                //         if (k && prior.has(String(k))) {
-                //             // suppressSelectionEvent 사용 안 함(선택 UI만 복원)
-                //             oList.setSelectedItem(item, true);
-                //         }
-                //     });
-                // }, 0);
                 setTimeout(() => { this._restoreSelectionsInList("L_GlAccount"); }, 0);
             } catch (e) {
                 console.error(e);
@@ -3762,7 +4240,7 @@ onColumnMenuConfirm: function () {
                     template: new sap.m.StandardListItem({
                         title: "{GLALL>GLAccountLongName}",
                         description: "{GLALL>GLAccount}",
-                        selected: "{= ${GLALL>__sel} === true }" 
+                        selected: "{= ${GLALL>__sel} === true }"
                     })
                 });
 
@@ -3803,12 +4281,12 @@ onColumnMenuConfirm: function () {
             this._previewTokensFromSet(this._glStage);
             this._attachSelSyncOnce("L_GlAccountText");
         },
-_setAllModelSelection: function (checked) {
-  const m = this.getView().getModel("GLALL");
-  const items = m?.getProperty("/items") || [];
-  items.forEach(it => it.__sel = !!checked); // ★ 전량 플래그
-  m.refresh(true);
-},
+        _setAllModelSelection: function (checked) {
+            const m = this.getView().getModel("GLALL");
+            const items = m?.getProperty("/items") || [];
+            items.forEach(it => it.__sel = !!checked); // ★ 전량 플래그
+            m.refresh(true);
+        },
 
 
         _setListSelectionFromSel: function (oList) {
@@ -3831,25 +4309,25 @@ _setAllModelSelection: function (checked) {
                 .filter(Boolean);
         },
 
-onGlAccountToggleAll: function (ev) {
-  if (!this._menuOpen) return;
-  const checked = !!ev.getParameter("selected");
-  this._setAllModelSelection(checked);
+        onGlAccountToggleAll: function (ev) {
+            if (!this._menuOpen) return;
+            const checked = !!ev.getParameter("selected");
+            this._setAllModelSelection(checked);
 
-  const all = this._getAllGLKeys();           // GLALL>/items 전량 키
-  this._glStage = new Set(checked ? all : []); // ★ 전량을 스테이징에
-  this._previewTokensFromSet(this._glStage);   // 토큰 미리보기(요약 추천)
-},
+            const all = this._getAllGLKeys();           // GLALL>/items 전량 키
+            this._glStage = new Set(checked ? all : []); // ★ 전량을 스테이징에
+            this._previewTokensFromSet(this._glStage);   // 토큰 미리보기(요약 추천)
+        },
 
-onGlAccountTextToggleAll: function (ev) {
-  if (!this._menuOpen) return;
-  const checked = !!ev.getParameter("selected");
-  this._setAllModelSelection(checked);
+        onGlAccountTextToggleAll: function (ev) {
+            if (!this._menuOpen) return;
+            const checked = !!ev.getParameter("selected");
+            this._setAllModelSelection(checked);
 
-  const all = this._getAllGLKeys();
-  this._glStage = new Set(checked ? all : []);
-  this._previewTokensFromSet(this._glStage);
-},
+            const all = this._getAllGLKeys();
+            this._glStage = new Set(checked ? all : []);
+            this._previewTokensFromSet(this._glStage);
+        },
 
 
         _attachSelSyncOnce: function (listId) {
@@ -3893,6 +4371,703 @@ onGlAccountTextToggleAll: function (ev) {
                 L.setSelectedItem(it, want.has(String(k)), true/*suppress*/);
             });
         },
+
+        // ========================================================
+        // Bookmark
+        // ========================================================
+        // 헤더 ES/ET에서 아이템 ES로 향하는 네비게이션 이름을 메타에서 찾아옴
+        _getHeadToItemNavName: async function () {
+            const m = this._getOData();
+            await this._ensureMetaReady(m);
+            const mm = m.getMetaModel();
+
+            const esHead = mm.getODataEntitySet("BookMark_Head");
+            const esItem = mm.getODataEntitySet("BookMark_Item");
+            if (!esHead || !esItem) throw new Error("BookMark_Head/Item EntitySet 없음");
+
+            const etHead = mm.getODataEntityType(esHead.entityType);
+            const nps = etHead.navigationProperty || [];
+
+            for (const np of nps) {
+                // toEntitySet 을 구해 실제 아이템 ES와 매칭
+                const as = mm.getODataAssociationSet(esHead, etHead, np.name);
+                if (as && as.end && as.end.length === 2) {
+                    const to = as.end.find(e => e.entitySet !== esHead.name);
+                    if (to && to.entitySet === esItem.name) {
+                        return np.name; // 예: "to_Items" 또는 "_Items" 등 실제 이름
+                    }
+                }
+            }
+            throw new Error("헤더→아이템 네비게이션을 찾을 수 없음");
+        },
+
+        // 헤더 ES/ET에서 아이템 ES로 향하는 네비게이션 이름을 메타에서 찾아옴
+        _getHeadToItemNavName: async function () {
+            const m = this._getOData();
+            await this._ensureMetaReady(m);
+            const mm = m.getMetaModel();
+
+            const esHead = mm.getODataEntitySet("BookMark_Head");
+            const esItem = mm.getODataEntitySet("BookMark_Item");
+            if (!esHead || !esItem) throw new Error("BookMark_Head/Item EntitySet 없음");
+
+            const etHead = mm.getODataEntityType(esHead.entityType);
+            const nps = etHead.navigationProperty || [];
+
+            for (const np of nps) {
+                // toEntitySet 을 구해 실제 아이템 ES와 매칭
+                const as = mm.getODataAssociationSet(esHead, etHead, np.name);
+                if (as && as.end && as.end.length === 2) {
+                    const to = as.end.find(e => e.entitySet !== esHead.name);
+                    if (to && to.entitySet === esItem.name) {
+                        return np.name; // 예: "to_Items" 또는 "_Items" 등 실제 이름
+                    }
+                }
+            }
+            throw new Error("헤더→아이템 네비게이션을 찾을 수 없음");
+        },
+
+        _extractODataError: function (e, prefix) {
+            try {
+                // datajs/oModel error 구조에서 메시지 끌어오기
+                const body = e?.response?.body || e?.message || "";
+                if (body) return new Error((prefix ? prefix + " - " : "") + body);
+            } catch (_) { /* noop */ }
+            return new Error((prefix ? prefix + " - " : "") + (e?.message || "Unknown error"));
+        },
+
+        // 헤더 목록
+        _loadBookmarkHeads: function () {
+            const oModel = this._getOData();
+            return new Promise((resolve, reject) => {
+                oModel.read("/BookMark_Head", {
+                    success: (d) => resolve(d?.results || []),
+                    error: (e) => reject(this._extractODataError(e, "헤더 조회 실패"))
+                });
+            });
+        },
+
+        // 특정 헤더의 아이템
+        _loadBookmarkItems: async function (bookmarkId) {
+            await this._whenMetaReady();
+            const oModel = this.getView().getModel();
+
+            // Edm.Guid 타입 안전 필터 값
+            const edm = await this._getEdmType("BookMark_Item", "Bookmarkid");
+            const val = this._coerceForFilter(edm, bookmarkId);
+
+            return new Promise((resolve, reject) => {
+                oModel.read("/BookMark_Item", {
+                    filters: [new sap.ui.model.Filter("Bookmarkid", sap.ui.model.FilterOperator.EQ, val)],
+                    success: d => resolve((d?.results || []).sort((a, b) => (a.Sortindex | 0) - (b.Sortindex | 0))),
+                    error: reject
+                });
+            });
+        },
+
+
+        // 삭제 (아이템 → 헤더 순서)
+        _deleteBookmarkFromDB: async function (bookmarkId) {
+            const oModel = this._getOData();
+            const items = await this._loadBookmarkItems(bookmarkId);
+
+            const groupId = "BM_DEL_" + Date.now();
+            oModel.setDeferredGroups([groupId]);
+
+            items.forEach(it => {
+                const keyPath = oModel.createKey("BookMark_Item", {           // ★ 엔티티셋 이름(슬래시 없음)
+                    Bookmarkid: bookmarkId,
+                    Bookmark_Item: it.Bookmark_Item
+                });
+                oModel.remove("/" + keyPath, { groupId });
+            });
+
+            const headKey = oModel.createKey("BookMark_Head", { Bookmarkid: bookmarkId });
+            oModel.remove("/" + headKey, { groupId });
+
+            await new Promise((resolve, reject) => {
+                oModel.submitChanges({
+                    groupId,
+                    success: () => resolve(),
+                    error: (e) => reject(this._extractODataError(e, "북마크 삭제 실패"))
+                });
+            });
+        },
+
+
+        _uuid: function () {
+            // 간단 GUID
+            return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+                const r = Math.random() * 16 | 0, v = c === "x" ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        },
+
+_collectBookmarkItemsForDB: function () {
+  const oTable = this.byId("T_Main");
+  const ob = oTable && oTable.getBinding("rows");
+  if (!ob) return [];
+
+  const len = ob.getLength();
+  const out = [];
+
+  for (let i = 0; i < len; i++) {
+    const ctx = ob.getContextByIndex(i);
+    if (!ctx) continue;
+
+    const r = ctx.getObject();
+    // 실제 UI 펼침 상태 → Drillstate 삼항 결정
+    const hasChildren = (typeof ob.hasChildren === "function")
+      ? !!ob.hasChildren(i)
+      : (r.__childCount != null ? r.__childCount > 0 : !!r.HasChildren); // 백엔드에 따라 보정
+
+    const isExpanded = (typeof ob.isExpanded === "function")
+      ? !!ob.isExpanded(i)
+      : (String(r.DrillState || r.Drillstate).toLowerCase() === "expanded");
+
+    const drill = hasChildren ? (isExpanded ? "expanded" : "collapsed") : "leaf";
+
+    out.push({
+      // === 기존 필드들 ===
+      Bookmark_Item: this._guid36(),
+      Hierarchyid: String(r.HierarchyID || r.HierarchyId || ""),
+      Node: (r.Node != null ? String(r.Node) : (r.NodeID != null ? String(r.NodeID) : "")),
+      Parentnodeid: (r.ParentNodeID != null ? String(r.ParentNodeID) : (r.ParentNode != null ? String(r.ParentNode) : "")),
+      Glaccount: String(r.GlAccount || ""),
+      Glaccounttext: String(r.GlAccountText || ""),
+      Nodetext: String(r.NodeText || ""),
+      Hierarchylevel: String(r.HierarchyLevel != null ? r.HierarchyLevel : ""),
+      Sortindex: i,
+      Top: (Number(r.HierarchyLevel) === 1 ? 1 : 0),
+
+      // === 핵심: 실제 접힘/펼침 반영 ===
+      Drillstate: drill
+    });
+  }
+  return out;
+},
+        // async 호출 함수
+        // 기존 _uuid, _collectBookmarkItemsForDB 는 그대로 사용
+
+        saveBookmarkToDB: async function (bookmarkName) {
+            const oModel = this._getOData(); // 기본 OData V2 모델
+            const id = this._uuid();
+
+            // 1) HEAD 먼저 생성
+            const headPayload = {
+                Bookmarkid: id,
+                Bookmarkname: bookmarkName || "내 북마크"
+            };
+
+            await new Promise((resolve, reject) => {
+                // caps.hasToItems === true 여야 함
+                oModel.create("/BookMark_Head", {
+                    Bookmarkname: name,
+                    to_Items: items.map((r, i) => this._sanitizeBookmarkItem(r, i)) // Bookmarkid는 서버가 채움
+                }, {
+                    success: (d) => sap.m.MessageToast.show("북마크 저장 완료"),
+                    error: (e) => sap.m.MessageBox.error("저장 실패\n" + (e.message || "")),
+                });
+
+            });
+
+            // 2) 아이템 수집
+            const items = this._collectBookmarkItemsForDB(); // [{Bookmark_Item, Hierarchyid, Node, ...}, ...]
+            if (!items || !items.length) {
+                sap.m.MessageToast.show("북마크가 저장되었습니다.");
+                return id;
+            }
+
+            // 3) 배치로 아이템 다건 생성
+            //    - groupId 를 지연(deferred) 그룹으로 설정
+            const groupId = "BM_SAVE_" + Date.now();
+            oModel.setDeferredGroups([groupId]);
+
+            // 필요한 경우(모델 설정에 따라) 엔티티셋별 change group 설정
+            // oModel.setChangeGroups({ BookMark_Item: { groupId, changeSetId: "BM_SET", single: false } });
+
+            items.forEach(it => {
+                const payload = Object.assign({ Bookmarkid: id }, it); // FK 채우기
+                oModel.create("/BookMark_Item", payload, { groupId });
+            });
+
+            await new Promise((resolve, reject) => {
+                oModel.submitChanges({
+                    groupId,
+                    success: () => resolve(),
+                    error: (e) => reject(e)
+                });
+            });
+
+            sap.m.MessageToast.show("북마크가 저장되었습니다.");
+            return id;
+        },
+
+        listBookmarksFromDB: async function () {
+            const oModel = this._getOData();
+            return await new Promise((resolve, reject) => {
+                oModel.read(BOOKMARK.headSet, {
+                    // 필요하면 $orderby, $filter 추가
+                    success: (d) => resolve(d?.results || []),
+                    error: reject
+                });
+            });
+        },
+        loadBookmarkItemsFromDB: async function (bookmarkId) {
+            const oModel = this._getOData();
+            return await new Promise((resolve, reject) => {
+                oModel.read(BOOKMARK.itemSet, {
+                    urlParameters: {
+                        "$filter": `Bookmarkid eq '${bookmarkId}'`,
+                        "$orderby": "Sortindex asc"
+                    },
+                    success: (d) => resolve(d?.results || []),
+                    error: reject
+                });
+            });
+        },
+
+        _applyBookmarkItemsClient: function (items) {
+            // ① 기존 OData 바인딩 기억
+            const oTable = this.byId("T_Main");
+            if (!oTable) return;
+
+            if (!this._origBindingInfo) {
+                // 원래 OData 바인딩 정보 백업 (복귀용)
+                const b = oTable.getBindingInfo("rows");
+                this._origBindingInfo = b ? JSON.parse(JSON.stringify(b)) : null;
+            }
+
+            // ② JSON 트리 데이터로 변환
+            // 불러오기 단계
+            const flat = (dbItems || []).map(it => ({
+                HierarchyID: it.Hierarchyid,
+                Node: it.Node != null ? String(it.Node) : "",
+                // ★ 최상위는 null 로!
+                ParentNodeID: (it.Parentnodeid == null || it.Parentnodeid === "") ? null : String(it.Parentnodeid),
+                GlAccount: it.Glaccount ? String(it.Glaccount) : "",
+                GlAccountText: it.Glaccounttext || "",
+                NodeText: it.Nodetext || "",
+                HierarchyLevel: Number(it.Hierarchylevel) || 1,
+                DrillState: (it.Drillstate || "").toLowerCase() || "collapsed"
+            }));
+
+
+            const roots = this._buildTreeFromFlat(flat); // 네가 이미 만든 함수
+            const cleanRoots = this._cleanForModel(roots);
+            // 3) JSON 모델로 클라이언트 바인딩 전환
+            const m = new sap.ui.model.json.JSONModel(cleanRoots);
+            oTable.unbindRows();
+            oTable.setModel(m, "client");
+            oTable.bindRows({
+                path: "client>/",
+                parameters: { arrayNames: ["children"] }
+            });
+            const jm = new sap.ui.model.json.JSONModel({ roots });
+
+            // ③ 테이블을 클라이언트 모드로 바인딩
+            oTable.setModel(jm, "client");
+            oTable.unbindRows();
+            oTable.bindRows({
+                path: "client>/roots",
+                parameters: {
+                    arrayNames: ["children"],
+                    rootLevel: 1
+                }
+            });
+
+            this._isClientView = true;
+            sap.m.MessageToast.show("북마크가 적용되었습니다.");
+        },
+        deleteBookmarksFromDB: async function (bookmarkIds /* string[] */) {
+            const oModel = this._getOData();
+
+            // 단건 삭제 helper
+            const del = (path) => new Promise((resolve, reject) => {
+                oModel.remove(path, { success: resolve, error: reject });
+            });
+
+            for (const id of (bookmarkIds || [])) {
+                // CASCADE라면 이 줄만
+                await del(`${BOOKMARK.headSet}('${encodeURIComponent(id)}')`);
+            }
+            sap.m.MessageToast.show("북마크가 삭제되었습니다.");
+        },
+        onBookmarkSave: async function () {
+            const oTable = this.byId("T_Main");
+            const ob = oTable?.getBinding("rows");
+            if (!ob) return sap.m.MessageToast.show("먼저 조회를 실행하세요.");
+
+            await this._waitRowsSettled(oTable, 160);
+
+            // 1) 아이템 스냅샷(네가 쓰던 로직)
+            const rows = this._collectExportRows(ob);
+            const items = rows.map((r, idx) => this._sanitizeBookmarkItem(r, idx));
+
+            // 2) 펼침 상태 스냅샷
+            const expandKeys = this._captureTreeExpandKeys(oTable, "Node"); // 또는 "HierarchyID"
+
+            // 3) 다이얼로그(중복 ID 없음)
+            const inp = new sap.m.Input({ placeholder: "북마크 이름" });
+            const dlg = new sap.m.Dialog({
+                title: "북마크 저장",
+                content: [inp],
+                buttons: [
+                    new sap.m.Button({
+                        text: "저장", type: "Emphasized",
+                        press: async () => {
+                            try {
+                                const name = (inp.getValue() || "").trim() || "내 북마크";
+                                // 헤더에 meta(JSON) 넣을 수 있으면 같이 저장
+                                await this._saveBookmarkToDB_direct(name, items, { expandKeys });
+                                sap.m.MessageToast.show("북마크 저장 완료");
+                                dlg.close();
+                            } catch (e) {
+                                jQuery.sap.log.error(e?.message || e);
+                                sap.m.MessageBox.error("북마크 저장 실패\n" + (e?.message || e));
+                            }
+                        }
+                    }),
+                    new sap.m.Button({ text: "취소", press: () => dlg.close() })
+                ]
+            });
+            this.getView().addDependent(dlg);
+            dlg.attachAfterClose(function () { this.destroy(); }, dlg);
+            dlg.open();
+        },
+
+        // 현재 테이블의 드릴 상태를 스냅샷(Map)으로 만든다: key = Node(또는 NodeID), val = 'expanded' | 'collapsed' | 'leaf'
+        _makeDrillStateMap: function (oTable, oBinding) {
+            const map = new Map();
+            const len = oBinding.getLength();
+
+            for (let i = 0; i < len; i++) {
+                const ctx = oBinding.getContextByIndex(i);
+                if (!ctx) continue;
+                const o = ctx.getObject();
+
+                // 북마크에서 노드를 구분하는 키(서비스에 맞춰 조정)
+                const key = String(o.Node ?? o.NodeID ?? o.GlAccount ?? "");
+                if (!key) continue;
+
+                let st = "leaf";
+                try {
+                    const hasChildren = typeof oBinding.hasChildren === "function"
+                        ? oBinding.hasChildren(ctx)
+                        : !!o.HasChildren; // 서비스에 HasChildren 같은 플래그가 있으면 사용
+
+                    if (hasChildren) st = oTable.isExpanded(i) ? "expanded" : "collapsed";
+                } catch (e) { /* noop */ }
+
+                map.set(key, st);
+            }
+            return map;
+        },
+
+        _whenMetaReady: async function () {
+            const m = this.getView().getModel();
+            await new Promise(res => m.getServiceMetadata() ? res() : m.attachMetadataLoaded(res));
+            const mm = m.getMetaModel && m.getMetaModel();
+            if (mm && mm.loaded) await mm.loaded();
+        },
+        _isGuid36: s => /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(String(s || "")),
+
+        _saveBookmarkToDB: async function (bookmarkName, items /*array*/) {
+            await this._whenMetaReady();
+            const oModel = this.getView().getModel();
+
+            // (A) Head 먼저 생성 → 서버가 Bookmarkid 생성
+            const headId = await new Promise((resolve, reject) => {
+                oModel.create("/BookMark_Head", { Bookmarkname: bookmarkName }, {
+                    success: (data) => {
+                        const id = data && data.Bookmarkid;
+                        if (!this._isGuid36(id)) return reject(new Error("서버가 반환한 Bookmarkid 형식 오류: " + id));
+                        resolve(id);             // ← 변형 금지(하이픈 제거 X, guid'…'로 싸지 말 것)
+                    },
+                    error: reject
+                });
+            });
+            // (B) Item 배치 생성
+            const groupId = "BM_ITEMS_" + Date.now();
+            oModel.setDeferredGroups([groupId]);
+
+            (items || []).forEach((it, idx) => {
+                oModel.create("/BookMark_Item", {
+                    // Bookmarkid: Edm.Guid, creatable=false 라고 되어 있어도
+                    // 이 서비스는 값 파싱을 시도합니다 → 그대로 36자 GUID 전달
+                    Bookmarkid: headId,
+                    // Bookmark_Item: Edm.Guid 이므로 신규 GUID 생성해서 넣기(숫자 금지)
+                    Bookmark_Item: this._guid36(),
+
+                    Hierarchyid: it.Hierarchyid || "",
+                    Node: it.Node || "",
+                    Glaccount: it.Glaccount || "",
+                    Parentnodeid: it.Parentnodeid || "",
+                    Glaccounttext: it.Glaccounttext || "",
+                    Nodetext: it.Nodetext || "",
+                    Hierarchylevel: it.Hierarchylevel || "",
+                    Drillstate: it.Drillstate || "",
+                    Sortindex: it.Sortindex ?? idx,   // Edm.Int64 → 숫자 OK
+                    Top: it.Top ?? 0      // Edm.Int32
+                }, { groupId });
+            });
+            await new Promise((resolve, reject) => {
+                oModel.submitChanges({
+                    groupId,
+                    success: (res) => {
+                        const bad = (res.__batchResponses || []).some(b =>
+                            (b.response && +b.response.statusCode >= 400) ||
+                            (b.__changeResponses || []).some(cr => +cr.statusCode >= 400)
+                        );
+                        bad ? reject(new Error("아이템 저장 실패")) : resolve();
+                    },
+                    error: reject
+                });
+            });
+
+            oModel.setDeferredGroups([]);
+            return headId;
+        },
+        // 엔터티셋/프로퍼티 Edm 타입 얻기 (안전, 실패 시 null)
+        _getEdmType: async function (entitySetName, propName) {
+            await this._whenMetaReady();
+
+            const oModel = this.getView().getModel();
+            const mm = oModel.getMetaModel && oModel.getMetaModel();
+            if (!mm) return null;
+
+            // 메타모델이 로드되었는지 한 번 더 보장
+            if (typeof mm.loaded === "function") {
+                try { await mm.loaded(); } catch (e) { /* ignore */ }
+            }
+
+            // 방어적으로 접근
+            const es = mm.getODataEntitySet && mm.getODataEntitySet(entitySetName);
+            if (!es) return null;
+
+            const et = mm.getODataEntityType && mm.getODataEntityType(es.entityType);
+            if (!et || !Array.isArray(et.property)) return null;
+
+            const p = et.property.find(x => x.name === propName);
+            return p && p.type ? p.type : null;          // e.g. "Edm.Int32", "Edm.String"
+        },
+
+        // 필터 값 타입 보정 (기존 그대로 사용)
+        _coerceForFilter: function (edmType, v) {
+            switch (edmType) {
+                case "Edm.Int16":
+                case "Edm.Int32":
+                case "Edm.Int64": return parseInt(v, 10);
+                case "Edm.Decimal":
+                case "Edm.Double":
+                case "Edm.Single": return parseFloat(v);
+                case "Edm.Boolean": return String(v).toLowerCase() === "true" || v === true || v === 1;
+                default: return String(v);
+            }
+        },
+        _newGuidV4: function () {
+            return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+                const r = (Math.random() * 16) | 0, v = c === "x" ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            }).toUpperCase();
+        },
+        _guid36: function () {
+            const s4 = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
+            return `${s4()}${s4()}-${s4()}-${s4()}-${s4()}-${s4()}${s4()}${s4()}`.toLowerCase();
+        },
+        _sanitizeBookmarkItem: function (r, idx, drillMap) {
+            const cut = (s, n) => (s == null ? "" : String(s)).substring(0, n);
+            const asInt = v => Number.isFinite(Number(v)) ? Math.trunc(Number(v)) : 0;
+            const level = Number(r.HierarchyLevel);
+
+            const key = String(r.Node ?? r.NodeID ?? r.GlAccount ?? "");
+            const st = (drillMap && drillMap.get(key)) ||
+                (r.GlAccount ? "leaf" : "collapsed"); // 없으면 기본 collapsed
+
+            return {
+                Bookmark_Item: this._guid36(),                // Edm.Guid
+                Hierarchyid: cut(r.HierarchyID || r.HierarchyId || "", 50),
+                Node: cut(r.Node != null ? r.Node : (r.NodeID ?? ""), 50),
+                Parentnodeid: cut(r.ParentNodeID ?? r.ParentNode ?? "", 50),
+                Glaccount: cut(String(r.GlAccount || "").toUpperCase(), 10),
+                Glaccounttext: cut(r.GlAccountText || "", 255),
+                Nodetext: cut(r.NodeText || "", 255),
+                Hierarchylevel: cut(String(Number.isFinite(level) ? level : 1), 6),
+                Drillstate: cut(st, 10),                   // ★ expanded|collapsed|leaf
+                Sortindex: String(asInt(idx)),            // Edm.Int64 → 문자열로
+                Top: asInt(level === 1 ? 1 : 0)     // Edm.Int32
+            };
+        },
+
+        _extractODataError: function (e, prefix) {
+            const msg = e?.response?.body || e?.message || e?.statusText || String(e);
+            return new Error((prefix ? prefix + " - " : "") + msg);
+        },
+
+        _getOData: function () {
+            // 기본모델이 OData V2인지 확인 (필요하면 "main" 같은 이름모델을 써도 됨)
+            const m = this.getOwnerComponent().getModel(); // 또는 getModel("main")
+            if (!(m instanceof sap.ui.model.odata.v2.ODataModel)) {
+                throw new Error("OData V2 모델이 아닙니다. (컴포넌트의 기본/이름모델 확인)");
+            }
+            return m;
+        },
+
+        _ensureMetaReady: async function (oModel) {
+            // 서비스 메타 + 메타모델 로드 완료까지 대기
+            await oModel.metadataLoaded();
+            const mm = oModel.getMetaModel();
+            await mm.loaded();
+            return mm;
+        },
+
+        _saveBookmarkToDB_direct: async function (name, rawItems) {
+            const oModel = this._getOData();
+
+            // 1) 메타 & 네비 이름 확인
+            const { navName, itemCreatable } = await this._resolveBookmarkMeta();
+
+            // 2) 헤더 생성
+            const headId = await new Promise((resolve, reject) => {
+                oModel.create("/BookMark_Head", { Bookmarkname: name }, {
+                    success: d => d?.Bookmarkid ? resolve(d.Bookmarkid) : reject(new Error("Bookmarkid 반환 없음")),
+                    error: reject
+                });
+            });
+
+            // 3) 배치 준비
+            const groupId = "BM_SAVE_" + Date.now();
+            oModel.setDeferredGroups([groupId]);
+
+            // 4) 페이로드 정제
+            const items = (rawItems || []).map((r, i) => this._sanitizeBookmarkItem(r, i));
+
+            // 5) 네비 경로 우선 사용(있으면). 없으면 엔티티셋으로 직접 POST (FK 포함)
+            if (navName) {
+                const headKey = oModel.createKey("BookMark_Head", { Bookmarkid: headId });
+                const navPath = `/${headKey}/${navName}`;
+                items.forEach(p => {
+                    // FK는 네비 경로가 채워주므로 넣지 않음
+                    const payload = Object.assign({}, p);
+                    delete payload.Bookmarkid;
+                    oModel.create(navPath, payload, { groupId });
+                });
+            } else {
+                // 네비가 없으면 엔티티셋으로 직접 POST (FK 필요)
+                if (!itemCreatable) {
+                    throw new Error("BookMark_Item creatable=false (백엔드에서 CUD 활성화 필요)");
+                }
+                items.forEach(p => {
+                    const payload = Object.assign({ Bookmarkid: headId }, p);
+                    oModel.create("/BookMark_Item", payload, { groupId });
+                });
+            }
+
+            // 6) 배치 전송 + 상세 로그
+            await new Promise((resolve, reject) => {
+                oModel.submitChanges({
+                    groupId,
+                    success: (res) => {
+                        const batch = res && res.__batchResponses || [];
+                        // 로그: 실제로 몇 건의 change 가 나갔는지 출력
+                        let totalChanges = 0, errors = [];
+                        batch.forEach(b => {
+                            const ch = b.__changeResponses || [];
+                            totalChanges += ch.length;
+                            if (b.response && +b.response.statusCode >= 400) {
+                                errors.push(b.response.body || b.response.statusText);
+                            }
+                            ch.forEach(cr => {
+                                if (+cr.statusCode >= 400) errors.push((cr.response && cr.response.body) || cr.message || "change error");
+                            });
+                        });
+                        console.log("[BM] header+items changeRequests =", totalChanges, "errors:", errors);
+                        if (errors.length) return reject(new Error("아이템 저장 실패\n" + errors.join("\n\n")));
+                        resolve();
+                    },
+                    error: reject
+                });
+            });
+
+            // 끝: 둘 다 호출됨
+            return headId;
+        },
+
+
+        _sanitizeBookmarkItem: function (r, idx) {
+            const cut = (s, n) => (s == null ? "" : String(s)).substring(0, n);
+            const asInt = (v, d = 0) => Number.isFinite(Number(v)) ? Math.trunc(Number(v)) : d;
+            const level = asInt(r.HierarchyLevel, 1);
+
+            return {
+                Bookmark_Item: this._guid36(),                          // Edm.Guid
+                Hierarchyid: cut(r.HierarchyID || r.HierarchyId || "", 50),
+                Node: cut(r.Node != null ? r.Node : (r.NodeID ?? ""), 50),
+                Parentnodeid: cut(r.ParentNodeID ?? r.ParentNode ?? "", 50),
+                Glaccount: cut(String(r.GlAccount || "").toUpperCase(), 10),
+                Glaccounttext: cut(r.GlAccountText || "", 255),
+                Nodetext: cut(r.NodeText || "", 255),
+                Hierarchylevel: cut(String(level), 6),                    // Edm.String(6)
+                Drillstate: cut(r.DrillState || (r.GlAccount ? "leaf" : "expanded"), 10),
+                Sortindex: String(asInt(idx)),                       // ★ Edm.Int64 → 문자열로
+                Top: asInt(level === 1 ? 1 : 0)                // Edm.Int32
+            };
+        },
+
+        _extractBatchError(res) {
+            try {
+                const br = res && res.__batchResponses || [];
+                for (const r of br) {
+                    if (r.response && r.response.statusCode >= 400) return new Error(r.response.body || "Batch error");
+                    if (r.__changeResponses) {
+                        for (const cr of r.__changeResponses) {
+                            if (cr.statusCode >= 400) return new Error((cr.response && cr.response.body) || "Change error");
+                        }
+                    }
+                }
+            } catch (e) { }
+            return null;
+        },
+        // 메타에서 Head → Item 네비 이름, Item 엔티티셋 creatable 여부 확인
+        _resolveBookmarkMeta: async function () {
+            const m = this._getOData();
+            await m.metadataLoaded();
+            const mm = m.getMetaModel();
+
+            const esHead = mm.getODataEntitySet("BookMark_Head");
+            const etHead = mm.getODataEntityType(esHead.entityType);
+
+            // 헤더의 네비 중 아이템 타입 가리키는 것 찾기
+            const navs = etHead.navigationProperty || [];
+            let navName = null;
+            for (const np of navs) {
+                const assoc = mm.getODataAssociationEnd(etHead, np.name);
+                if (!assoc) continue;
+                const toType = assoc.type; // 예: ...ZC_MANAGEBOOKMARK_ITEMType
+                if (toType && /BOOKMARK.*ITEM/i.test(toType)) { navName = np.name; break; }
+            }
+
+            const esItem = mm.getODataEntitySet("BookMark_Item");
+            const itemCreatable = !esItem || esItem["sap:creatable"] !== "false"; // 없으면 true로 간주
+
+            return { navName, itemCreatable };
+        },
+        _safeGetObjByIndex: function (oBinding, i) {
+            try {
+                const ctx = oBinding && oBinding.getContextByIndex && oBinding.getContextByIndex(i);
+                return (ctx && ctx.getObject) ? ctx.getObject() : null;
+            } catch (e) { return null; }
+        },
+        _collectExportRows: function (oBinding) {
+            const out = [];
+            const len = oBinding.getLength();
+            for (let i = 0; i < len; i++) {
+                const o = this._safeGetObjByIndex(oBinding, i);
+                if (o) out.push(o);
+            }
+            return out;
+        }
+
 
     });
 });

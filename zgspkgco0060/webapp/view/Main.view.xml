@@ -89,7 +89,7 @@
                             <SearchField id="SF_TableSearch" width="15rem" search="onTableSearch" />
                             <!-- 엔터/돋보기 클릭도 동일 동작 -->
                             <Button id="B_BookmarkSave" icon="sap-icon://bookmark" text="북마크 저장" press="onBookmarkSave" />
-                            <Button id="B_BookmarkLoad" icon="sap-icon://folder-2" mode="MultiSelect" text="북마크 불러오기" press="onBookmarkLoad" />
+                            <Button id="B_BookmarkLoad" icon="sap-icon://folder-2"  text="북마크 불러오기" press="onBookmarkLoad" />
                             <Button id="B_ExpandLevelDown" icon="sap-icon://less" text="단계" tooltip="한 단계 접기" press="onExpandLevelDown"/>
                             <Button id="B_ExpandLevelUp" icon="sap-icon://add" text="단계" tooltip="한 단계 펼치기" press="onExpandLevelUp" />
                             <Button icon="sap-icon://expand-group" press="onExpandAllPress" />
@@ -221,7 +221,7 @@
             <columnmenu:Item label="filter" confirm=".onGlAccountMenuConfirm" cancel=".onGlAccountMenuCancel" reset=".onGlAccountMenuReset" showResetButton="false" showCancelButton="true">
                 <VBox width="100%">
                     <!-- 검색 필드 -->
-                    <SearchField id="SF_GlAccount" width="100%" liveChange=".onColumnMenuSearch" placeholder="G/L 계정 검색"/>
+                    <SearchField id="SF_GlAccount" width="100%" liveChange=".onGlAccountMenuSearch" placeholder="G/L 계정 검색"/>
                     <CheckBox id="CB_GlAccountSelectAll" text="전체 선택" select=".onGlAccountToggleAll"/>
                     <!-- 항목 목록 -->
                     <List id="L_GlAccount" mode="MultiSelect" includeItemInSelection="true" selectionChange=".onGlAccountSelectionChange" width="100%" height="300px">
@@ -255,7 +255,7 @@
             <columnmenu:Item label="filter" confirm=".onColumnMenuConfirm" cancel=".onColumnMenuCancel" reset=".onGlAccountTextMenuReset" showResetButton="false" showCancelButton="true">
 
                 <VBox width="100%">
-                    <SearchField id="SF_GlAccountText" width="100%" liveChange=".onColumnMenuSearch" placeholder="G/L 내역 검색"/>
+                    <SearchField id="SF_GlAccountText" width="100%" liveChange=".onGlAccountTextMenuSearch" placeholder="G/L 내역 검색"/>
 
                     <!-- 전체 선택 체크박스 -->
                     <HBox width="100%" class="sapUiTinyMarginBottom">

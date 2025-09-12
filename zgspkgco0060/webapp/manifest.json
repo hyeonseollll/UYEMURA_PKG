@@ -40,7 +40,7 @@
         "comgspkgco0050-display": {
           "semanticObject": "comgspkgco0050",
           "action": "display",
-          "title": "{{comgspkgco0050-display.flpTitle}}",     
+          "title": "{{comgspkgco0050-display.flpTitle}}",
           "signature": {
             "parameters": {},
             "additionalParameters": "allowed"

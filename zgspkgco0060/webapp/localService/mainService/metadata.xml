@@ -86,6 +86,38 @@
                 <Property Name="GLAccountName" Type="Edm.String" MaxLength="20" sap:label="G/L 계정 이름"/>
                 <Property Name="GLAccountLongName" Type="Edm.String" MaxLength="50" sap:label="GL 계정의 긴 이름" sap:quickinfo="G/L 계정의 긴 이름"/>
             </EntityType>
+            <EntityType Name="BookMark_HeadType" sap:label="북마크 관리 Header Projection View" sap:content-version="1">
+                <Key>
+                    <PropertyRef Name="Bookmarkid"/>
+                </Key>
+                <Property Name="Delete_mc" Type="Edm.Boolean" sap:label="Dyn. Method Control" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                <Property Name="Update_mc" Type="Edm.Boolean" sap:label="Dyn. Method Control" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                <Property Name="to_Item_oc" Type="Edm.Boolean" sap:label="Dynamic CbA-Control" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                <Property Name="Bookmarkid" Type="Edm.Guid" Nullable="false" sap:label="UUID" sap:quickinfo="16 Byte UUID in 16 Bytes (Raw Format)" sap:creatable="false" sap:updatable="false"/>
+                <Property Name="Bookmarkname" Type="Edm.String" MaxLength="100"/>
+                <NavigationProperty Name="to_Item" Relationship="cds_zsd_financialstatements.assoc_2AB83D512DBCB379A4BABC39AE2B60A7" FromRole="FromRole_assoc_2AB83D512DBCB379A4BABC39AE2B60A7" ToRole="ToRole_assoc_2AB83D512DBCB379A4BABC39AE2B60A7"/>
+            </EntityType>
+            <EntityType Name="BookMark_ItemType" sap:label="북마크 관리 Item Projection View" sap:content-version="1">
+                <Key>
+                    <PropertyRef Name="Bookmarkid"/>
+                    <PropertyRef Name="Bookmark_Item"/>
+                </Key>
+                <Property Name="Delete_mc" Type="Edm.Boolean" sap:label="Dyn. Method Control" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                <Property Name="Update_mc" Type="Edm.Boolean" sap:label="Dyn. Method Control" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                <Property Name="Bookmarkid" Type="Edm.Guid" Nullable="false" sap:label="UUID" sap:quickinfo="16 Byte UUID in 16 Bytes (Raw Format)" sap:creatable="false" sap:updatable="false"/>
+                <Property Name="Bookmark_Item" Type="Edm.Guid" Nullable="false" sap:label="UUID" sap:quickinfo="16 Byte UUID in 16 Bytes (Raw Format)"/>
+                <Property Name="Hierarchyid" Type="Edm.String" MaxLength="50"/>
+                <Property Name="Node" Type="Edm.String" MaxLength="50"/>
+                <Property Name="Glaccount" Type="Edm.String" MaxLength="10" sap:display-format="UpperCase" sap:label="G/L 계정" sap:quickinfo="G/L 계정 번호"/>
+                <Property Name="Parentnodeid" Type="Edm.String" MaxLength="50"/>
+                <Property Name="Glaccounttext" Type="Edm.String" MaxLength="255"/>
+                <Property Name="Nodetext" Type="Edm.String" MaxLength="255"/>
+                <Property Name="Hierarchylevel" Type="Edm.String" MaxLength="6" sap:display-format="NonNegative"/>
+                <Property Name="Drillstate" Type="Edm.String" MaxLength="10"/>
+                <Property Name="Sortindex" Type="Edm.Int64"/>
+                <Property Name="Top" Type="Edm.Int32" sap:label="INT4" sap:quickinfo="4바이트 부호 있는 정수"/>
+                <NavigationProperty Name="to_Head" Relationship="cds_zsd_financialstatements.assoc_2AB83D512DBCB379A4BABC39AE2B60A7" FromRole="ToRole_assoc_2AB83D512DBCB379A4BABC39AE2B60A7" ToRole="FromRole_assoc_2AB83D512DBCB379A4BABC39AE2B60A7"/>
+            </EntityType>
             <EntityType Name="F_GLAccount_VHType" sap:label="노드 GL Value Help" sap:content-version="1">
                 <Key>
                     <PropertyRef Name="GLAccount"/>
@@ -240,6 +272,20 @@
             <ComplexType Name="SAP__HeaderFooterField">
                 <Property Name="Type" Type="Edm.String" Nullable="false" MaxLength="256" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
             </ComplexType>
+            <Association Name="assoc_2AB83D512DBCB379A4BABC39AE2B60A7" sap:content-version="1">
+                <End Type="cds_zsd_financialstatements.BookMark_HeadType" Multiplicity="1" Role="FromRole_assoc_2AB83D512DBCB379A4BABC39AE2B60A7">
+                    <OnDelete Action="Cascade"/>
+                </End>
+                <End Type="cds_zsd_financialstatements.BookMark_ItemType" Multiplicity="*" Role="ToRole_assoc_2AB83D512DBCB379A4BABC39AE2B60A7"/>
+                <ReferentialConstraint>
+                    <Principal Role="FromRole_assoc_2AB83D512DBCB379A4BABC39AE2B60A7">
+                        <PropertyRef Name="Bookmarkid"/>
+                    </Principal>
+                    <Dependent Role="ToRole_assoc_2AB83D512DBCB379A4BABC39AE2B60A7">
+                        <PropertyRef Name="Bookmarkid"/>
+                    </Dependent>
+                </ReferentialConstraint>
+            </Association>
             <Association Name="to_format" sap:content-version="1">
                 <End Type="cds_zsd_financialstatements.SAP__DocumentDescription" Multiplicity="1" Role="FromRole_to_format"/>
                 <End Type="cds_zsd_financialstatements.SAP__Format" Multiplicity="1" Role="ToRole_to_format"/>
@@ -351,6 +397,8 @@
             <EntityContainer Name="cds_zsd_financialstatements_Entities" m:IsDefaultEntityContainer="true" sap:message-scope-supported="true" sap:supported-formats="atom json xlsx pdf">
                 <EntitySet Name="FinancialStatements" EntityType="cds_zsd_financialstatements.FinancialStatementsType" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1"/>
                 <EntitySet Name="GLAccount_VH" EntityType="cds_zsd_financialstatements.GLAccount_VHType" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1"/>
+                <EntitySet Name="BookMark_Head" EntityType="cds_zsd_financialstatements.BookMark_HeadType" sap:content-version="1" sap:deletable-path="Delete_mc" sap:updatable-path="Update_mc"/>
+                <EntitySet Name="BookMark_Item" EntityType="cds_zsd_financialstatements.BookMark_ItemType" sap:content-version="1" sap:deletable-path="Delete_mc" sap:updatable-path="Update_mc"/>
                 <EntitySet Name="F_GLAccount_VH" EntityType="cds_zsd_financialstatements.F_GLAccount_VHType" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1"/>
                 <EntitySet Name="SAP__FormatSet" EntityType="cds_zsd_financialstatements.SAP__Format" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
                 <EntitySet Name="SAP__PDFStandardSet" EntityType="cds_zsd_financialstatements.SAP__PDFStandard" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
@@ -365,6 +413,10 @@
                 <EntitySet Name="SAP__UnitsOfMeasure" EntityType="cds_zsd_financialstatements.SAP__UnitOfMeasure" sap:content-version="1"/>
                 <EntitySet Name="SAP__MyDocumentDescriptions" EntityType="cds_zsd_financialstatements.SAP__DocumentDescription" sap:content-version="1"/>
                 <EntitySet Name="SAP__FileShareSet" EntityType="cds_zsd_financialstatements.SAP__FileShare" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
+                <AssociationSet Name="assoc_2AB83D512DBCB379A4BABC39AE2B60A7" Association="cds_zsd_financialstatements.assoc_2AB83D512DBCB379A4BABC39AE2B60A7" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1">
+                    <End EntitySet="BookMark_Head" Role="FromRole_assoc_2AB83D512DBCB379A4BABC39AE2B60A7"/>
+                    <End EntitySet="BookMark_Item" Role="ToRole_assoc_2AB83D512DBCB379A4BABC39AE2B60A7"/>
+                </AssociationSet>
                 <AssociationSet Name="to_HierarchySet" Association="cds_zsd_financialstatements.to_Hierarchy" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1">
                     <End EntitySet="SAP__MyDocumentDescriptions" Role="FromRole_to_Hierarchy"/>
                     <End EntitySet="SAP__HierarchySet" Role="ToRole_to_Hierarchy"/>
@@ -405,6 +457,128 @@
             <Annotation Term="Core.SchemaVersion" String="1.0.0" xmlns="http://docs.oasis-open.org/odata/ns/edm"/>
             <Annotations Target="cds_zsd_financialstatements.cds_zsd_financialstatements_Entities" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="Common.ApplyMultiUnitBehaviorForSortingAndFiltering" Bool="true"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_financialstatements.BookMark_HeadType/to_Item" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+                <Annotation Term="Common.Composition"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_financialstatements.cds_zsd_financialstatements_Entities/BookMark_Head" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+                <Annotation Term="Capabilities.DeleteRestrictions">
+                    <Record>
+                        <PropertyValue Property="Deletable" Path="Delete_mc"/>
+                    </Record>
+                </Annotation>
+                <Annotation Term="Capabilities.FilterRestrictions">
+                    <Record>
+                        <PropertyValue Property="NonFilterableProperties">
+                            <Collection>
+                                <PropertyPath>Delete_mc</PropertyPath>
+                                <PropertyPath>Update_mc</PropertyPath>
+                                <PropertyPath>to_Item_oc</PropertyPath>
+                            </Collection>
+                        </PropertyValue>
+                    </Record>
+                </Annotation>
+                <Annotation Term="Capabilities.InsertRestrictions">
+                    <Record>
+                        <PropertyValue Property="Insertable" Bool="true"/>
+                    </Record>
+                </Annotation>
+                <Annotation Term="Capabilities.NavigationRestrictions">
+                    <Record>
+                        <PropertyValue Property="RestrictedProperties">
+                            <Collection>
+                                <Record>
+                                    <PropertyValue Property="NavigationProperty" NavigationPropertyPath="to_Item"/>
+                                    <PropertyValue Property="InsertRestrictions">
+                                        <Record>
+                                            <PropertyValue Property="Insertable" Path="to_Item_oc"/>
+                                        </Record>
+                                    </PropertyValue>
+                                </Record>
+                            </Collection>
+                        </PropertyValue>
+                    </Record>
+                </Annotation>
+                <Annotation Term="SAP__core.OptimisticConcurrency">
+                    <Collection/>
+                </Annotation>
+                <Annotation Term="Capabilities.SortRestrictions">
+                    <Record>
+                        <PropertyValue Property="NonSortableProperties">
+                            <Collection>
+                                <PropertyPath>Delete_mc</PropertyPath>
+                                <PropertyPath>Update_mc</PropertyPath>
+                                <PropertyPath>to_Item_oc</PropertyPath>
+                            </Collection>
+                        </PropertyValue>
+                    </Record>
+                </Annotation>
+                <Annotation Term="Capabilities.UpdateRestrictions">
+                    <Record>
+                        <PropertyValue Property="NonUpdatableNavigationProperties">
+                            <Collection>
+                                <PropertyPath>to_Item</PropertyPath>
+                            </Collection>
+                        </PropertyValue>
+                        <PropertyValue Property="Updatable" Path="Update_mc"/>
+                    </Record>
+                </Annotation>
+            </Annotations>
+            <Annotations Target="cds_zsd_financialstatements.cds_zsd_financialstatements_Entities/BookMark_Item" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+                <Annotation Term="Capabilities.DeleteRestrictions">
+                    <Record>
+                        <PropertyValue Property="Deletable" Path="Delete_mc"/>
+                    </Record>
+                </Annotation>
+                <Annotation Term="Capabilities.FilterRestrictions">
+                    <Record>
+                        <PropertyValue Property="NonFilterableProperties">
+                            <Collection>
+                                <PropertyPath>Delete_mc</PropertyPath>
+                                <PropertyPath>Update_mc</PropertyPath>
+                            </Collection>
+                        </PropertyValue>
+                    </Record>
+                </Annotation>
+                <Annotation Term="Capabilities.NavigationRestrictions">
+                    <Record>
+                        <PropertyValue Property="RestrictedProperties">
+                            <Collection>
+                                <Record>
+                                    <PropertyValue Property="NavigationProperty" NavigationPropertyPath="to_Head"/>
+                                    <PropertyValue Property="InsertRestrictions">
+                                        <Record>
+                                            <PropertyValue Property="Insertable" Bool="false"/>
+                                        </Record>
+                                    </PropertyValue>
+                                </Record>
+                            </Collection>
+                        </PropertyValue>
+                    </Record>
+                </Annotation>
+                <Annotation Term="SAP__core.OptimisticConcurrency">
+                    <Collection/>
+                </Annotation>
+                <Annotation Term="Capabilities.SortRestrictions">
+                    <Record>
+                        <PropertyValue Property="NonSortableProperties">
+                            <Collection>
+                                <PropertyPath>Delete_mc</PropertyPath>
+                                <PropertyPath>Update_mc</PropertyPath>
+                            </Collection>
+                        </PropertyValue>
+                    </Record>
+                </Annotation>
+                <Annotation Term="Capabilities.UpdateRestrictions">
+                    <Record>
+                        <PropertyValue Property="NonUpdatableNavigationProperties">
+                            <Collection>
+                                <PropertyPath>to_Head</PropertyPath>
+                            </Collection>
+                        </PropertyValue>
+                        <PropertyValue Property="Updatable" Path="Update_mc"/>
+                    </Record>
+                </Annotation>
             </Annotations>
             <Annotations Target="cds_zsd_financialstatements.cds_zsd_financialstatements_Entities/F_GLAccount_VH" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="Capabilities.DeleteRestrictions">
@@ -456,6 +630,42 @@
                         <PropertyValue Property="Updatable" Bool="false"/>
                     </Record>
                 </Annotation>
+            </Annotations>
+            <Annotations Target="cds_zsd_financialstatements.BookMark_HeadType/Bookmarkname" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+                <Annotation Term="Common.FieldControl" EnumMember="Common.FieldControlType/Optional"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_financialstatements.BookMark_ItemType/Bookmark_Item" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+                <Annotation Term="Common.FieldControl" EnumMember="Common.FieldControlType/Optional"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_financialstatements.BookMark_ItemType/Drillstate" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+                <Annotation Term="Common.FieldControl" EnumMember="Common.FieldControlType/Optional"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_financialstatements.BookMark_ItemType/Glaccount" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+                <Annotation Term="Common.FieldControl" EnumMember="Common.FieldControlType/Optional"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_financialstatements.BookMark_ItemType/Glaccounttext" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+                <Annotation Term="Common.FieldControl" EnumMember="Common.FieldControlType/Optional"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_financialstatements.BookMark_ItemType/Hierarchyid" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+                <Annotation Term="Common.FieldControl" EnumMember="Common.FieldControlType/Optional"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_financialstatements.BookMark_ItemType/Hierarchylevel" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+                <Annotation Term="Common.FieldControl" EnumMember="Common.FieldControlType/Optional"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_financialstatements.BookMark_ItemType/Node" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+                <Annotation Term="Common.FieldControl" EnumMember="Common.FieldControlType/Optional"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_financialstatements.BookMark_ItemType/Nodetext" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+                <Annotation Term="Common.FieldControl" EnumMember="Common.FieldControlType/Optional"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_financialstatements.BookMark_ItemType/Parentnodeid" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+                <Annotation Term="Common.FieldControl" EnumMember="Common.FieldControlType/Optional"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_financialstatements.BookMark_ItemType/Sortindex" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+                <Annotation Term="Common.FieldControl" EnumMember="Common.FieldControlType/Optional"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_financialstatements.BookMark_ItemType/Top" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+                <Annotation Term="Common.FieldControl" EnumMember="Common.FieldControlType/Optional"/>
             </Annotations>
             <Annotations Target="cds_zsd_financialstatements.cds_zsd_financialstatements_Entities" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="Org.OData.Capabilities.V1.BatchSupport">
@@ -530,6 +740,9 @@
             </Annotations>
             <Annotations Target="cds_zsd_financialstatements.FinancialStatementsType/P_SENDMONTH" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="SAP__common.DocumentationRef" String="urn:sap-com:documentation:key?=type=DE&amp;id=POPER&amp;origin=PZE_100"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_financialstatements.BookMark_ItemType/Glaccount" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+                <Annotation Term="SAP__common.DocumentationRef" String="urn:sap-com:documentation:key?=type=DE&amp;id=SAKNR&amp;origin=PZE_100"/>
             </Annotations>
             <Annotations Target="cds_zsd_financialstatements.GLAccount_VHType/ChartOfAccounts" xmlns="http://docs.oasis-open.org/odata/ns/edm">
                 <Annotation Term="SAP__common.DocumentationRef" String="urn:sap-com:documentation:key?=type=DE&amp;id=KTOPL&amp;origin=PZE_100"/>
