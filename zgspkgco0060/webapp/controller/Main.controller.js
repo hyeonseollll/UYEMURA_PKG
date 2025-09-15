@@ -3197,93 +3197,93 @@ sap.ui.define([
             }
         },
 
-_applyBookmarkItemsToTable: async function (dbItems) {
-  const oTable = this.byId("T_Main");
-  if (!oTable) return;
+        _applyBookmarkItemsToTable: async function (dbItems) {
+            const oTable = this.byId("T_Main");
+            if (!oTable) return;
 
-  // 1) 평면 → 트리 (정렬 유지)
-  const flat = (dbItems || [])
-    .sort((a,b)=>(a.Sortindex|0)-(b.Sortindex|0))
-    .map(it => ({
-      Key: (String(it.Hierarchyid||"") + "|" + String(it.Node||"")), // 유니크 키(계층+노드)
-      ParentKey: (String(it.Hierarchyid||"") + "|" + String(it.Parentnodeid||"")),
-      HierarchyID: it.Hierarchyid,
-      Node: (it.Node != null ? String(it.Node) : null),
-      ParentNodeID: (it.Parentnodeid != null ? String(it.Parentnodeid) : null),
-      GlAccount: it.Glaccount ? String(it.Glaccount) : "",
-      GlAccountText: it.Glaccounttext || "",
-      NodeText: it.Nodetext || "",
-      HierarchyLevel: Number(it.Hierarchylevel),
-      DrillState: (it.Drillstate || "").toLowerCase() // 'expanded' | 'collapsed' | 'leaf'
-    }));
+            // 1) 평면 → 트리 (정렬 유지)
+            const flat = (dbItems || [])
+                .sort((a, b) => (a.Sortindex | 0) - (b.Sortindex | 0))
+                .map(it => ({
+                    Key: (String(it.Hierarchyid || "") + "|" + String(it.Node || "")), // 유니크 키(계층+노드)
+                    ParentKey: (String(it.Hierarchyid || "") + "|" + String(it.Parentnodeid || "")),
+                    HierarchyID: it.Hierarchyid,
+                    Node: (it.Node != null ? String(it.Node) : null),
+                    ParentNodeID: (it.Parentnodeid != null ? String(it.Parentnodeid) : null),
+                    GlAccount: it.Glaccount ? String(it.Glaccount) : "",
+                    GlAccountText: it.Glaccounttext || "",
+                    NodeText: it.Nodetext || "",
+                    HierarchyLevel: Number(it.Hierarchylevel),
+                    DrillState: (it.Drillstate || "").toLowerCase() // 'expanded' | 'collapsed' | 'leaf'
+                }));
 
-  const byKey = new Map(flat.map(o => [o.Key, Object.assign(o, { children: [] })]));
-  const roots = [];
-  for (const n of byKey.values()) {
-    if (n.ParentNodeID && byKey.has(n.ParentKey)) byKey.get(n.ParentKey).children.push(n);
-    else roots.push(n);
-  }
+            const byKey = new Map(flat.map(o => [o.Key, Object.assign(o, { children: [] })]));
+            const roots = [];
+            for (const n of byKey.values()) {
+                if (n.ParentNodeID && byKey.has(n.ParentKey)) byKey.get(n.ParentKey).children.push(n);
+                else roots.push(n);
+            }
 
-  // 2) JSON 모델로 트리 바인딩
-  const m = new sap.ui.model.json.JSONModel({ roots });
-  oTable.unbindRows();
-  oTable.setModel(m, "client");
-  oTable.bindRows({ path: "client>/roots", parameters: { arrayNames: ["children"] } });
-  await this._waitRowsSettled(oTable, 120);
+            // 2) JSON 모델로 트리 바인딩
+            const m = new sap.ui.model.json.JSONModel({ roots });
+            oTable.unbindRows();
+            oTable.setModel(m, "client");
+            oTable.bindRows({ path: "client>/roots", parameters: { arrayNames: ["children"] } });
+            await this._waitRowsSettled(oTable, 120);
 
-  // 3) 먼저 0레벨로(기본 모두 접힘)
-  try { oTable.expandToLevel(0); } catch(e) {}
-  await this._waitRowsSettled(oTable, 80);
+            // 3) 먼저 0레벨로(기본 모두 접힘)
+            try { oTable.expandToLevel(0); } catch (e) { }
+            await this._waitRowsSettled(oTable, 80);
 
-  // 4) 저장된 expanded 노드만 부모부터 확장
-  const expandedKeys = flat
-    .filter(x => x.DrillState === "expanded")
-    .map(x => x.Key);
+            // 4) 저장된 expanded 노드만 부모부터 확장
+            const expandedKeys = flat
+                .filter(x => x.DrillState === "expanded")
+                .map(x => x.Key);
 
-  await this._expandNodesByKeyWithParents(expandedKeys); // 아래 헬퍼 참고
-  await this._waitRowsSettled(oTable, 120);
+            await this._expandNodesByKeyWithParents(expandedKeys); // 아래 헬퍼 참고
+            await this._waitRowsSettled(oTable, 120);
 
-  // (선택) 선택/스크롤 복원 필요시 여기서 적용
-},
+            // (선택) 선택/스크롤 복원 필요시 여기서 적용
+        },
 
-// Key(=Hierarchyid|Node)로 행 인덱스를 찾아 부모→자식 순서로 expand
-_expandNodesByKeyWithParents: async function (keys) {
-  if (!Array.isArray(keys) || !keys.length) return;
-  const oTable = this.byId("T_Main");
-  const ob = oTable.getBinding("rows");
+        // Key(=Hierarchyid|Node)로 행 인덱스를 찾아 부모→자식 순서로 expand
+        _expandNodesByKeyWithParents: async function (keys) {
+            if (!Array.isArray(keys) || !keys.length) return;
+            const oTable = this.byId("T_Main");
+            const ob = oTable.getBinding("rows");
 
-  // 부모 경로 만들기
-  const uniq = new Set(keys);
-  const need = [];
-  for (const k of uniq) {
-    const parts = k.split("|");
-    const hier = parts[0];
-    const node = parts[1];
-    // parent 체인을 복원 (ParentKey는 저장된 flat에서 계산 가능)
-    // 간단히: 경로상 상위 키들이 byKey에 있다면 모두 포함 (여기서는 prefix 규칙 안 쓰고, 런타임에서 행에서 역추적)
-    need.push(k);
-  }
+            // 부모 경로 만들기
+            const uniq = new Set(keys);
+            const need = [];
+            for (const k of uniq) {
+                const parts = k.split("|");
+                const hier = parts[0];
+                const node = parts[1];
+                // parent 체인을 복원 (ParentKey는 저장된 flat에서 계산 가능)
+                // 간단히: 경로상 상위 키들이 byKey에 있다면 모두 포함 (여기서는 prefix 규칙 안 쓰고, 런타임에서 행에서 역추적)
+                need.push(k);
+            }
 
-  // 찾을 때까지 반복(트리 펼치면서 인덱스가 생김)
-  const findRowByKey = (key) => {
-    const len = ob.getLength();
-    for (let i = 0; i < len; i++) {
-      const ctx = ob.getContextByIndex(i);
-      const o = ctx && ctx.getObject && ctx.getObject();
-      const k = String(o.HierarchyID||"") + "|" + String(o.Node||"");
-      if (k === key) return i;
-    }
-    return -1;
-  };
+            // 찾을 때까지 반복(트리 펼치면서 인덱스가 생김)
+            const findRowByKey = (key) => {
+                const len = ob.getLength();
+                for (let i = 0; i < len; i++) {
+                    const ctx = ob.getContextByIndex(i);
+                    const o = ctx && ctx.getObject && ctx.getObject();
+                    const k = String(o.HierarchyID || "") + "|" + String(o.Node || "");
+                    if (k === key) return i;
+                }
+                return -1;
+            };
 
-  for (const k of need) {
-    const row = findRowByKey(k);
-    if (row > -1) {
-      try { oTable.expand(row); } catch(e) {}
-      await this._waitRowsSettled(oTable, 40);
-    }
-  }
-},
+            for (const k of need) {
+                const row = findRowByKey(k);
+                if (row > -1) {
+                    try { oTable.expand(row); } catch (e) { }
+                    await this._waitRowsSettled(oTable, 40);
+                }
+            }
+        },
 
 
         _attachDrillStateSync: function () {
@@ -3934,12 +3934,13 @@ _expandNodesByKeyWithParents: async function (keys) {
                 if (this._isBSorPLRow(obj)) continue;
 
                 // 집계행(GlAccount 없음) 이거나, 금액이 하나라도 있는 리프면 칠하기
-                const isGroup = !obj.GlAccount;
+                const hasGl = !!obj.GlAccount;
                 const hasAmt = this._hasAnyAmount(obj, [
                     "PeriodBalance", "ComparisonBalance", "AbsoluteDifference", "RelativeDifference"
                 ]);
-                if (!(isGroup || hasAmt)) continue;
 
+                // GL 계정이 있고, 금액도 있는 경우만 색상 칠하기
+                if (!(hasGl && hasAmt)) continue;
                 // 3) property 이름이 FIELDS에 들어있는 셀만 칠함 (열 순서/개인화/북마크 무관)
                 for (let ci = 0; ci < cells.length; ci++) {
                     const prop = cellPropList[ci];
@@ -4503,49 +4504,49 @@ _expandNodesByKeyWithParents: async function (keys) {
             });
         },
 
-_collectBookmarkItemsForDB: function () {
-  const oTable = this.byId("T_Main");
-  const ob = oTable && oTable.getBinding("rows");
-  if (!ob) return [];
+        _collectBookmarkItemsForDB: function () {
+            const oTable = this.byId("T_Main");
+            const ob = oTable && oTable.getBinding("rows");
+            if (!ob) return [];
 
-  const len = ob.getLength();
-  const out = [];
+            const len = ob.getLength();
+            const out = [];
 
-  for (let i = 0; i < len; i++) {
-    const ctx = ob.getContextByIndex(i);
-    if (!ctx) continue;
+            for (let i = 0; i < len; i++) {
+                const ctx = ob.getContextByIndex(i);
+                if (!ctx) continue;
 
-    const r = ctx.getObject();
-    // 실제 UI 펼침 상태 → Drillstate 삼항 결정
-    const hasChildren = (typeof ob.hasChildren === "function")
-      ? !!ob.hasChildren(i)
-      : (r.__childCount != null ? r.__childCount > 0 : !!r.HasChildren); // 백엔드에 따라 보정
+                const r = ctx.getObject();
+                // 실제 UI 펼침 상태 → Drillstate 삼항 결정
+                const hasChildren = (typeof ob.hasChildren === "function")
+                    ? !!ob.hasChildren(i)
+                    : (r.__childCount != null ? r.__childCount > 0 : !!r.HasChildren); // 백엔드에 따라 보정
 
-    const isExpanded = (typeof ob.isExpanded === "function")
-      ? !!ob.isExpanded(i)
-      : (String(r.DrillState || r.Drillstate).toLowerCase() === "expanded");
+                const isExpanded = (typeof ob.isExpanded === "function")
+                    ? !!ob.isExpanded(i)
+                    : (String(r.DrillState || r.Drillstate).toLowerCase() === "expanded");
 
-    const drill = hasChildren ? (isExpanded ? "expanded" : "collapsed") : "leaf";
+                const drill = hasChildren ? (isExpanded ? "expanded" : "collapsed") : "leaf";
 
-    out.push({
-      // === 기존 필드들 ===
-      Bookmark_Item: this._guid36(),
-      Hierarchyid: String(r.HierarchyID || r.HierarchyId || ""),
-      Node: (r.Node != null ? String(r.Node) : (r.NodeID != null ? String(r.NodeID) : "")),
-      Parentnodeid: (r.ParentNodeID != null ? String(r.ParentNodeID) : (r.ParentNode != null ? String(r.ParentNode) : "")),
-      Glaccount: String(r.GlAccount || ""),
-      Glaccounttext: String(r.GlAccountText || ""),
-      Nodetext: String(r.NodeText || ""),
-      Hierarchylevel: String(r.HierarchyLevel != null ? r.HierarchyLevel : ""),
-      Sortindex: i,
-      Top: (Number(r.HierarchyLevel) === 1 ? 1 : 0),
+                out.push({
+                    // === 기존 필드들 ===
+                    Bookmark_Item: this._guid36(),
+                    Hierarchyid: String(r.HierarchyID || r.HierarchyId || ""),
+                    Node: (r.Node != null ? String(r.Node) : (r.NodeID != null ? String(r.NodeID) : "")),
+                    Parentnodeid: (r.ParentNodeID != null ? String(r.ParentNodeID) : (r.ParentNode != null ? String(r.ParentNode) : "")),
+                    Glaccount: String(r.GlAccount || ""),
+                    Glaccounttext: String(r.GlAccountText || ""),
+                    Nodetext: String(r.NodeText || ""),
+                    Hierarchylevel: String(r.HierarchyLevel != null ? r.HierarchyLevel : ""),
+                    Sortindex: i,
+                    Top: (Number(r.HierarchyLevel) === 1 ? 1 : 0),
 
-      // === 핵심: 실제 접힘/펼침 반영 ===
-      Drillstate: drill
-    });
-  }
-  return out;
-},
+                    // === 핵심: 실제 접힘/펼침 반영 ===
+                    Drillstate: drill
+                });
+            }
+            return out;
+        },
         // async 호출 함수
         // 기존 _uuid, _collectBookmarkItemsForDB 는 그대로 사용
 
