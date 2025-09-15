@@ -1614,6 +1614,270 @@ sap.ui.define([
             return [new Filter(sPath, NUM.has(sPath) ? OP.EQ : OP.Contains, NUM.has(sPath) ? Number(s) : s)];
         },
 
+        // ========================================================================
+        // BOOKMARK: SAVE (HEAD + ITEMS) AND LOAD TO CLIENT TREE
+        // ========================================================================
+        onBookmarkSave: async function () {
+            const oTable = this.byId(Control.Table.T_Main);
+            const oBinding = oTable && oTable.getBinding("rows");
+            if (!oBinding) { sap.m.MessageToast.show("먼저 조회를 실행하세요."); return; }
+
+            await this._waitRowsSettled(oTable, 150);
+
+            const inp = new sap.m.Input({ placeholder: "북마크 이름" });
+            const dlg = new sap.m.Dialog({
+                title: "북마크 저장",
+                content: [inp],
+                buttons: [
+                    new sap.m.Button({
+                        text: "저장",
+                        type: "Emphasized",
+                        press: async () => {
+                            const name = (inp.getValue() || "").trim() || "내 북마크";
+                            dlg.setBusy(true);
+                            try {
+                                const items = this._collectBookmarkItemsForDB();
+                                await this._saveBookmarkToDB(name, items);
+                                sap.m.MessageToast.show("북마크가 저장되었습니다.");
+                                dlg.close();
+                            } catch (e) {
+                                sap.m.MessageBox.error("북마크 저장 실패\n" + (e && e.message || e));
+                            } finally { dlg.setBusy(false); }
+                        }
+                    }),
+                    new sap.m.Button({ text: "취소", press: () => dlg.close() })
+                ],
+                afterClose: function () { this.destroy(); }
+            });
+            this.getView().addDependent(dlg);
+            dlg.open();
+        },
+
+        _collectBookmarkItemsForDB: function () {
+            const oTable = this.byId(Control.Table.T_Main);
+            const oBinding = oTable && oTable.getBinding("rows");
+            if (!oBinding) return [];
+
+            const len = oBinding.getLength();
+            const out = [];
+            for (let i = 0; i < len; i++) {
+                const ctx = oBinding.getContextByIndex(i);
+                if (!ctx) continue;
+                const r = ctx.getObject();
+
+                // hasChildren, expanded 판정 (서비스/바인딩에 따라 보정)
+                const hasChildren = (typeof oBinding.hasChildren === "function")
+                    ? !!oBinding.hasChildren(i)
+                    : (r.__childCount != null ? r.__childCount > 0 : !!r.HasChildren);
+
+                const isExpanded = (typeof oTable.isExpanded === "function") ? !!oTable.isExpanded(i)
+                    : (String(r.DrillState || r.Drillstate).toLowerCase() === "expanded");
+
+                const drill = hasChildren ? (isExpanded ? "expanded" : "collapsed") : "leaf";
+
+                out.push({
+                    Bookmark_Item: this._guid36(),
+                    Hierarchyid: String(r.HierarchyID || r.HierarchyId || ""),
+                    Node: (r.Node != null ? String(r.Node) : (r.NodeID != null ? String(r.NodeID) : "")),
+                    Parentnodeid: (r.ParentNodeID != null ? String(r.ParentNodeID) : (r.ParentNode != null ? String(r.ParentNode) : "")),
+                    Glaccount: String(r.GlAccount || "").toUpperCase(),
+                    Glaccounttext: String(r.GlAccountText || ""),
+                    Nodetext: String(r.NodeText || ""),
+                    Hierarchylevel: String(r.HierarchyLevel != null ? r.HierarchyLevel : 1),
+                    Drillstate: drill,
+                    Sortindex: i,
+                    Top: (Number(r.HierarchyLevel) === 1 ? 1 : 0)
+                });
+            }
+            return out;
+        },
+
+        _getOData: function () {
+            const m = this.getOwnerComponent().getModel();
+            return m;
+        },
+
+        _whenMetaReady: async function () {
+            const m = this._getOData();
+            if (!m) return;
+            if (typeof m.metadataLoaded === "function") { try { await m.metadataLoaded(); } catch (e) { /*noop*/ } }
+            const mm = m.getMetaModel && m.getMetaModel();
+            if (mm && typeof mm.loaded === "function") { try { await mm.loaded(); } catch (e) { /*noop*/ } }
+        },
+
+        _isGuid36: function (s) { return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(String(s || "")); },
+        _guid36: function () {
+            const s4 = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
+            return `${s4()}${s4()}-${s4()}-${s4()}-${s4()}-${s4()}${s4()}${s4()}`.toLowerCase();
+        },
+
+        _saveBookmarkToDB: async function (bookmarkName, items) {
+            await this._whenMetaReady();
+            const oModel = this._getOData();
+            // 1) Head 생성 → 서버가 Bookmarkid 생성
+            const headId = await new Promise((resolve, reject) => {
+                oModel.create("/BookMark_Head", { Bookmarkname: bookmarkName }, {
+                    success: (data) => {
+                        const id = data && data.Bookmarkid;
+                        if (!this._isGuid36(id)) return reject(new Error("Bookmarkid 형식 오류: " + id));
+                        resolve(id);
+                    },
+                    error: reject
+                });
+            });
+
+            // 2) Item 배치 생성
+            const groupId = "BM_ITEMS_" + Date.now();
+            oModel.setDeferredGroups([groupId]);
+            (items || []).forEach((it, idx) => {
+                const payload = Object.assign({
+                    Bookmarkid: headId,
+                    Bookmark_Item: this._guid36()
+                }, it, { Sortindex: (it.Sortindex != null ? it.Sortindex : idx) });
+                oModel.create("/BookMark_Item", payload, { groupId });
+            });
+
+            await new Promise((resolve, reject) => {
+                oModel.submitChanges({
+                    groupId,
+                    success: (res) => {
+                        const br = res && res.__batchResponses || [];
+                        const hasErr = br.some(b => (b.response && +b.response.statusCode >= 400) || (b.__changeResponses || []).some(cr => +cr.statusCode >= 400));
+                        hasErr ? reject(new Error("아이템 저장 실패")) : resolve();
+                    },
+                    error: reject
+                });
+            });
+            oModel.setDeferredGroups([]);
+            return headId;
+        },
+
+        onBookmarkLoad: async function () {
+            let heads = [];
+            try { heads = await this._loadBookmarkHeads(); } catch (e) { return sap.m.MessageBox.error("북마크 목록을 불러오지 못했습니다."); }
+            if (!heads.length) { sap.m.MessageToast.show("저장된 북마크가 없습니다."); return; }
+
+            const jm = new sap.ui.model.json.JSONModel({ items: heads, selCount: 0 });
+            const list = new sap.m.List({
+                mode: sap.m.ListMode.MultiSelect,
+                includeItemInSelection: true,
+                items: {
+                    path: "/items",
+                    template: new sap.m.StandardListItem({ title: "{Bookmarkname}", description: "{Bookmarkid}", icon: "sap-icon://bookmark", type: "Inactive" })
+                }
+            });
+            const dlg = new sap.m.Dialog({
+                title: "북마크 불러오기",
+                contentWidth: "520px",
+                contentHeight: "60vh",
+                content: [list],
+                buttons: [
+                    new sap.m.Button({
+                        text: "적용",
+                        type: "Emphasized",
+                        enabled: "{= ${/selCount} === 1 }",
+                        press: async () => {
+                            const sel = list.getSelectedItems() || [];
+                            if (sel.length !== 1) { sap.m.MessageToast.show("적용은 하나만 선택하세요."); return; }
+                            const head = sel[0].getBindingContext().getObject();
+                            dlg.setBusy(true);
+                            try {
+                                const items = await this._loadBookmarkItems(head.Bookmarkid);
+                                await this._applyBookmarkItemsClient(items);
+                                dlg.close();
+                            } catch (e) {
+                                sap.m.MessageBox.error("북마크 적용 실패\n" + (e && e.message || e));
+                            } finally { dlg.setBusy(false); }
+                        }
+                    }),
+                    new sap.m.Button({ text: "닫기", press: () => dlg.close() })
+                ],
+                afterClose: function () { this.destroy(); }
+            });
+
+            list.attachSelectionChange(() => {
+                jm.setProperty("/selCount", (list.getSelectedItems() || []).length);
+            });
+            dlg.setModel(jm);
+            this.getView().addDependent(dlg);
+            dlg.open();
+        },
+
+        _loadBookmarkHeads: function () {
+            const oModel = this._getOData();
+            return new Promise((resolve, reject) => {
+                oModel.read("/BookMark_Head", {
+                    success: (d) => resolve(d && d.results || []),
+                    error: reject
+                });
+            });
+        },
+
+        _loadBookmarkItems: function (bookmarkId) {
+            const oModel = this._getOData();
+            return new Promise((resolve, reject) => {
+                oModel.read("/BookMark_Item", {
+                    filters: [new sap.ui.model.Filter("Bookmarkid", sap.ui.model.FilterOperator.EQ, bookmarkId)],
+                    success: (d) => resolve((d && d.results || []).sort((a, b) => (a.Sortindex | 0) - (b.Sortindex | 0))),
+                    error: reject
+                });
+            });
+        },
+
+        _applyBookmarkItemsClient: async function (dbItems) {
+            const oTable = this.byId(Control.Table.T_Main);
+            if (!oTable) return;
+
+            // flat → tree rows for client
+            const flat = (dbItems || []).map(it => ({
+                HierarchyID: it.Hierarchyid,
+                Node: it.Node != null ? String(it.Node) : "",
+                ParentNodeID: (it.Parentnodeid == null || it.Parentnodeid === "") ? null : String(it.Parentnodeid),
+                GlAccount: it.Glaccount ? String(it.Glaccount) : "",
+                GlAccountText: it.Glaccounttext || "",
+                NodeText: it.Nodetext || "",
+                HierarchyLevel: Number(it.Hierarchylevel) || 1,
+                DrillState: (it.Drillstate || "").toLowerCase() || "collapsed"
+            }));
+
+            // build tree
+            const byId = Object.create(null);
+            const roots = [];
+            flat.forEach(n => { if (n.Node == null) return; byId[n.Node] = Object.assign({ children: [] }, n); });
+            flat.forEach(n => {
+                const id = n.Node, pid = n.ParentNodeID;
+                if (pid != null && byId[pid]) byId[pid].children.push(byId[id]); else roots.push(byId[id]);
+            });
+
+            const m = new sap.ui.model.json.JSONModel({ roots });
+            oTable.unbindRows();
+            oTable.setModel(m, "client");
+            oTable.bindRows({ path: "client>/roots", parameters: { arrayNames: ["children"], rootLevel: 1 } });
+
+            await this._waitRowsSettled(oTable, 120);
+
+            // 기본 접힘 후 저장된 expanded 노드만 확장 시도
+            try { oTable.expandToLevel(0); } catch (e) { /*noop*/ }
+            await this._waitRowsSettled(oTable, 60);
+
+            const ob = oTable.getBinding("rows");
+            if (ob) {
+                for (let pass = 0; pass < 3; pass++) {
+                    const len = ob.getLength();
+                    let did = false;
+                    for (let i = 0; i < len; i++) {
+                        const o = ob.getContextByIndex(i)?.getObject?.();
+                        if (!o) continue;
+                        const ds = String(o.DrillState || "").toLowerCase();
+                        if (ds === "expanded") { try { oTable.expand(i); did = true; } catch (e) { /*noop*/ } }
+                    }
+                    if (!did) break; else await this._waitRowsSettled(oTable, 60);
+                }
+            }
+
+            this._isClientView = true;
+            sap.m.MessageToast.show("북마크를 적용했습니다.");
+        }
 
     });
 });
