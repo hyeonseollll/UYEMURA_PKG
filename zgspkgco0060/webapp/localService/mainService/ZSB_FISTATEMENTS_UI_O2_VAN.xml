@@ -29,6 +29,186 @@
     </edmx:Reference>
     <edmx:DataServices>
         <Schema Namespace="zsb_fistatements_ui_o2_van.v1" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+            <Annotations Target="cds_zsd_financialstatements.BookMark_HeadType/Delete_mc">
+                <Annotation Term="UI.Hidden"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_financialstatements.BookMark_HeadType/Update_mc">
+                <Annotation Term="UI.Hidden"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_financialstatements.BookMark_HeadType/to_Item_oc">
+                <Annotation Term="UI.Hidden"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_financialstatements.BookMark_HeadType">
+                <Annotation Term="UI.Facets">
+                    <Collection>
+                        <Record Type="UI.ReferenceFacet">
+                            <PropertyValue Property="Label" String="Header"/>
+                            <PropertyValue Property="Target" AnnotationPath="@UI.Identification"/>
+                        </Record>
+                        <Record Type="UI.ReferenceFacet">
+                            <PropertyValue Property="Label" String="Item"/>
+                            <PropertyValue Property="Target" AnnotationPath="to_Item/@UI.LineItem"/>
+                        </Record>
+                    </Collection>
+                </Annotation>
+                <Annotation Term="UI.Identification">
+                    <Collection>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="북마크넘버"/>
+                            <PropertyValue Property="Value" Path="Bookmarkid"/>
+                        </Record>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="북마크명"/>
+                            <PropertyValue Property="Value" Path="Bookmarkname"/>
+                        </Record>
+                    </Collection>
+                </Annotation>
+                <Annotation Term="UI.LineItem">
+                    <Collection>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="북마크넘버"/>
+                            <PropertyValue Property="Value" Path="Bookmarkid"/>
+                        </Record>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="북마크명"/>
+                            <PropertyValue Property="Value" Path="Bookmarkname"/>
+                        </Record>
+                    </Collection>
+                </Annotation>
+                <Annotation Term="UI.SelectionFields">
+                    <Collection>
+                        <PropertyPath>Bookmarkid</PropertyPath>
+                        <PropertyPath>Bookmarkname</PropertyPath>
+                    </Collection>
+                </Annotation>
+            </Annotations>
+            <Annotations Target="cds_zsd_financialstatements.BookMark_ItemType/Delete_mc">
+                <Annotation Term="UI.Hidden"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_financialstatements.BookMark_ItemType/Update_mc">
+                <Annotation Term="UI.Hidden"/>
+            </Annotations>
+            <Annotations Target="cds_zsd_financialstatements.BookMark_ItemType">
+                <Annotation Term="UI.Facets">
+                    <Collection>
+                        <Record Type="UI.ReferenceFacet">
+                            <PropertyValue Property="Label" String="Item"/>
+                            <PropertyValue Property="Target" AnnotationPath="@UI.Identification"/>
+                        </Record>
+                    </Collection>
+                </Annotation>
+                <Annotation Term="UI.Identification">
+                    <Collection>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="북마크넘버"/>
+                            <PropertyValue Property="Value" Path="Bookmarkid"/>
+                        </Record>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="북마크아이템넘버"/>
+                            <PropertyValue Property="Value" Path="Bookmark_Item"/>
+                        </Record>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="계층아이디"/>
+                            <PropertyValue Property="Value" Path="Hierarchyid"/>
+                        </Record>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="부모노드아이디"/>
+                            <PropertyValue Property="Value" Path="Parentnodeid"/>
+                        </Record>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="노드"/>
+                            <PropertyValue Property="Value" Path="Node"/>
+                        </Record>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="노드명"/>
+                            <PropertyValue Property="Value" Path="Nodetext"/>
+                        </Record>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="GL"/>
+                            <PropertyValue Property="Value" Path="Glaccount"/>
+                        </Record>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="GL명"/>
+                            <PropertyValue Property="Value" Path="Glaccounttext"/>
+                        </Record>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="계층레벨"/>
+                            <PropertyValue Property="Value" Path="Hierarchylevel"/>
+                        </Record>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="state"/>
+                            <PropertyValue Property="Value" Path="Drillstate"/>
+                        </Record>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="정렬"/>
+                            <PropertyValue Property="Value" Path="Sortindex"/>
+                        </Record>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="top"/>
+                            <PropertyValue Property="Value" Path="Top"/>
+                        </Record>
+                    </Collection>
+                </Annotation>
+                <Annotation Term="UI.LineItem">
+                    <Collection>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="북마크넘버"/>
+                            <PropertyValue Property="Value" Path="Bookmarkid"/>
+                        </Record>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="북마크아이템넘버"/>
+                            <PropertyValue Property="Value" Path="Bookmark_Item"/>
+                        </Record>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="계층아이디"/>
+                            <PropertyValue Property="Value" Path="Hierarchyid"/>
+                        </Record>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="부모노드아이디"/>
+                            <PropertyValue Property="Value" Path="Parentnodeid"/>
+                        </Record>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="노드"/>
+                            <PropertyValue Property="Value" Path="Node"/>
+                        </Record>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="노드명"/>
+                            <PropertyValue Property="Value" Path="Nodetext"/>
+                        </Record>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="GL"/>
+                            <PropertyValue Property="Value" Path="Glaccount"/>
+                        </Record>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="GL명"/>
+                            <PropertyValue Property="Value" Path="Glaccounttext"/>
+                        </Record>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="계층레벨"/>
+                            <PropertyValue Property="Value" Path="Hierarchylevel"/>
+                        </Record>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="state"/>
+                            <PropertyValue Property="Value" Path="Drillstate"/>
+                        </Record>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="정렬"/>
+                            <PropertyValue Property="Value" Path="Sortindex"/>
+                        </Record>
+                        <Record Type="UI.DataField">
+                            <PropertyValue Property="Label" String="top"/>
+                            <PropertyValue Property="Value" Path="Top"/>
+                        </Record>
+                    </Collection>
+                </Annotation>
+                <Annotation Term="UI.SelectionFields">
+                    <Collection>
+                        <PropertyPath>Bookmarkid</PropertyPath>
+                        <PropertyPath>Bookmark_Item</PropertyPath>
+                        <PropertyPath>Hierarchyid</PropertyPath>
+                    </Collection>
+                </Annotation>
+            </Annotations>
             <Annotations Target="_Entities"/>
         </Schema>
     </edmx:DataServices>
