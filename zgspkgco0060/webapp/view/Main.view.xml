@@ -86,10 +86,13 @@
                 <table:extension>
                     <Bar>
                         <contentRight>
+                            <Button id="B_GlPrevPage" icon="sap-icon://navigation-left-arrow" text="이전" press="onGlPrevPage" enabled="false"/>
+                            <Text id="L_GlPageInfo" text=""/>
+                            <Button id="B_GlNextPage" icon="sap-icon://navigation-right-arrow" text="다음" press="onGlNextPage" enabled="false"/>
                             <SearchField id="SF_TableSearch" width="15rem" search="onTableSearch" />
                             <!-- 엔터/돋보기 클릭도 동일 동작 -->
                             <Button id="B_BookmarkSave" icon="sap-icon://bookmark" text="북마크 저장" press="onBookmarkSave" />
-                            <Button id="B_BookmarkLoad" icon="sap-icon://folder-2"  text="북마크 불러오기" press="onBookmarkLoad" />
+                            <Button id="B_BookmarkLoad" icon="sap-icon://folder-2" text="북마크 불러오기" press="onBookmarkLoad" />
                             <Button id="B_ExpandLevelDown" icon="sap-icon://less" text="단계" tooltip="한 단계 접기" press="onExpandLevelDown"/>
                             <Button id="B_ExpandLevelUp" icon="sap-icon://add" text="단계" tooltip="한 단계 펼치기" press="onExpandLevelUp" />
                             <Button icon="sap-icon://expand-group" press="onExpandAllPress" />
@@ -222,6 +225,7 @@
                 <VBox width="100%">
                     <!-- 검색 필드 -->
                     <SearchField id="SF_GlAccount" width="100%" change=".onGlAccountMenuSearch" placeholder="G/L 계정 검색"/>
+
                     <!-- 항목 목록 -->
                     <table:Table id="L_GlAccount" selectionMode="MultiToggle" rows="{GLALL>/items}" rowSelectionChange=".onGlAccountSelectionChange">
                         <table:columns>
@@ -258,12 +262,8 @@
         <columnmenu:items>
             <columnmenu:Item label="{i18n>Filter}" confirm=".onGlAccountTextMenuConfirm" cancel=".onGlAccountTextMenuCancel" showCancelButton="true" showResetButton="false">
                 <VBox width="100%">
-                    <SearchField id="SF_GlAccountText" width="100%" liveChange=".onColumnMenuSearch" placeholder="G/L 내역 검색"/>
-
-                    <!-- 전체 선택 체크박스 -->
-                    <HBox width="100%" class="sapUiTinyMarginBottom">
-                        <CheckBox id="CB_GlAccountTextSelectAll" text="전체 선택" select=".onGlAccountTextToggleAll"/>
-                    </HBox>
+                    <!-- 검색 필드 -->
+                    <SearchField id="SF_GlAccountText" width="100%" change=".onGlAccountTextMenuSearch" placeholder="G/L 내역 검색"/>
 
                     <!-- 항목 목록 -->
                     <table:Table id="L_GlAccountText" selectionMode="MultiToggle" rows="{GLALL>/items}" rowSelectionChange=".onGlAccountTextSelectionChange">
@@ -297,4 +297,4 @@
     </columnmenu:Menu>
 
 
-    </mvc:View>
+</mvc:View>
