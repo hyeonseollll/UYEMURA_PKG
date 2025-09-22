@@ -674,10 +674,15 @@ sap.ui.define([
 
         onGlAccountMenuConfirm: function () {
             try {
-                // 대량 선택 시에도 빠르게 확정
+                // _glStage를 우선적으로 사용 (실제 선택된 항목)
                 let keys = Array.from(this._glStage || []);
                 if (!keys.length) keys = this._getStageKeysFromModel();
+
+    
+
+                // _setGLKeys 호출 (menu-ok로 _glKeys 업데이트)
                 this._setGLKeys(keys, "menu-ok");
+
                 aTokenSeletedGLAccountOrg = aTokenSeletedGLAccount;
                 // 토큰을 두 입력 모두에 즉시 동기화
                 if (typeof this._syncGlTokensFromSel === "function") {
@@ -685,10 +690,6 @@ sap.ui.define([
                 } else if (typeof this._syncGLTokens === "function") {
                     this._syncGLTokens();
                 }
-                // 내부 상태 업데이트: 페이징/검색에서 인식되도록 전역 키셋 반영
-                try {
-                    this._setGLKeys(new Set(keys), "menu-confirm-gl");
-                } catch (e) { /* noop */ }
 
                 // 추가 보강: GLACCOUNT 선택을 GLACCOUNTTEXT 토큰에도 바로 반영
                 // 대량일 경우 토큰 렌더링은 생략(성능)
@@ -702,6 +703,8 @@ sap.ui.define([
             try {
                 let keys = Array.from(this._glStage || []);
                 if (!keys.length) keys = this._getStageKeysFromModel();
+
+                // _setGLKeys 호출 (menu-ok로 _glKeys 업데이트)
                 this._setGLKeys(keys, "menu-ok");
                 aTokenSeletedGLAccountOrg = aTokenSeletedGLAccount;
                 // 토큰을 두 입력 모두에 즉시 동기화
@@ -735,6 +738,13 @@ sap.ui.define([
 
         onGlAccountSelectionChange: function (oEvent) {
             if (!this._menuOpen) return;
+
+            // 선택 복원 중이면 이벤트 무시
+            if (this._isRestoringSelections) {
+           
+                return;
+            }
+
             let aSelectedIndex = oEvent.getSource().getSelectedIndices();
             let aSelectedContext = aSelectedIndex.map(function (iSelectedIndex) {
                 return oEvent.getSource().getContextByIndex(iSelectedIndex)
@@ -746,6 +756,9 @@ sap.ui.define([
 
             const keys = new Set(aSelectedGLAccount);
             this._glStage = keys;
+
+
+
             this._previewTokensFromSet(this._glStage);
         },
 
@@ -755,13 +768,24 @@ sap.ui.define([
             try {
                 const aItems = this.getView().getModel("GLALL")?.getProperty("/items") || [];
                 this._glStage = bSelected ? new Set(aItems.map(it => String(it.GLAccount))) : new Set();
-            } catch (e) { this._glStage = bSelected ? this._glStage || new Set() : new Set(); }
-            // 미리보기 토큰은 생성하지 않음(대량 토큰 생성 렉 방지)
-            // 라벨은 formatSelectedItems 포매터가 개수로 표시
+                // _glKeys는 OK 버튼에서만 업데이트
+
+                // 토큰 생성
+                this._previewTokensFromSet(this._glStage, "ToggleAll");
+            } catch (e) {
+                this._glStage = bSelected ? this._glStage || new Set() : new Set();
+            }
         },
 
         onGlAccountTextSelectionChange: function (oEvent) {
             if (!this._menuOpen) return;
+
+            // 선택 복원 중이면 이벤트 무시
+            if (this._isRestoringSelections) {
+        
+                return;
+            }
+
             let aSelectedIndex = oEvent.getSource().getSelectedIndices();
             let aSelectedContext = aSelectedIndex.map(function (iSelectedIndex) {
                 return oEvent.getSource().getContextByIndex(iSelectedIndex)
@@ -859,7 +883,7 @@ sap.ui.define([
             setTimeout(() => {
                 this._applyGroupRowColors?.();
                 this._refreshRowHighlights?.();
-                
+
                 // 스크롤 위치 복원 (필터 적용 후 데이터가 변경되어도 가능한 한 유지)
                 if (oTable.setFirstVisibleRow && currentFirstVisibleRow > 0) {
                     // 약간의 지연을 두어 데이터 바인딩이 완료된 후 스크롤 위치 복원
@@ -1025,7 +1049,7 @@ sap.ui.define([
 
             // 북마크 복원 후 사용자가 수동으로 노드를 펼치면 플래그 리셋
             if (this._bookmarkRestored) {
-    
+
                 this._bookmarkRestored = false;
             }
 
@@ -1227,14 +1251,14 @@ sap.ui.define([
             const oTable = this.byId("T_Main");
             const ob = oTable && oTable.getBinding("rows");
             if (!ob) return;
-            
+
             // 현재 스크롤 위치 저장
             const currentFirstVisibleRow = oTable.getFirstVisibleRow ? oTable.getFirstVisibleRow() : 0;
-            
+
             const aBase = this._getTableFilter();
             const aSearch = this._buildSearchFilters(this._lastTableQuery);
             ob.filter(aBase.concat(aSearch), sap.ui.model.FilterType.Application);
-            
+
             // 스크롤 위치 복원
             if (oTable.setFirstVisibleRow && currentFirstVisibleRow > 0) {
                 setTimeout(() => {
@@ -1361,7 +1385,7 @@ sap.ui.define([
                 const toks = mi && mi.getTokens ? mi.getTokens() : [];
                 const keys = toks.map(t => String(t.getKey && t.getKey() || t.getText())).filter(Boolean);
                 if (keys.length) return keys;
-            } catch (e) {}
+            } catch (e) { }
 
             if (this._glStage && this._glStage.size) return Array.from(this._glStage).map(String);
             return [];
@@ -1403,7 +1427,7 @@ sap.ui.define([
             const oTable = this.byId("T_Main");
             const oBinding = oTable && oTable.getBinding("rows");
             if (!oTable || !oBinding) return;
-            
+
             // 전체 데이터를 가져오기 위한 설정
             const oModel = oBinding.getModel();
             if (oModel) {
@@ -1420,7 +1444,7 @@ sap.ui.define([
                     oModel.setDefaultOperationMode("Server");
                 }
             }
-            
+
             oTable.setBusy(true);
         },
 
@@ -1459,7 +1483,7 @@ sap.ui.define([
 
                 // 북마크 복원이 이미 완료된 경우에는 북마크 복원 로직을 실행하지 않음
                 if (this._bookmarkRestoreCompleted) {
-            
+
                     if (isFirstRun) {
                         this._bInitialExpandDone = true;
                         try { oTable.expandToLevel(5); } catch (e) { }
@@ -1514,14 +1538,14 @@ sap.ui.define([
 
                         // 3-2) 먼저 저장된 확장된 노드들을 확장
                         if (Array.isArray(stEff.expandedNodes) && stEff.expandedNodes.length) {
-                   
+
                             await this._expandNodesByKeyWithParents(stEff.expandedNodes);
                             await this._waitRowsSettled(oTable, 200);
                         }
 
                         // 3-3) 저장된 접힌 노드들을 접기
                         if (Array.isArray(stEff.collapsedNodes) && stEff.collapsedNodes.length) {
-                            
+
                             await this._collapseNodesById(stEff.collapsedNodes);
                             await this._waitRowsSettled(oTable, 200);
                         }
@@ -1568,7 +1592,7 @@ sap.ui.define([
 
                         // 북마크 복원 완료 후 즉시 플래그 리셋 (사용자 수동 조작 허용)
                         this._bookmarkRestored = false;
-                        
+
                         // 북마크 복원 완료 플래그 설정 (다음 호출 시 북마크 복원 로직 건너뜀)
                         this._bookmarkRestoreCompleted = true;
 
@@ -2258,7 +2282,7 @@ sap.ui.define([
                     await this._waitRowsSettled(oTable, 120);
                 }
             } else {
-    
+
                 await this._waitRowsSettled(oTable, 120);
             }
 
@@ -2374,10 +2398,10 @@ sap.ui.define([
             try {
                 const store = await this._getPersContainer();
                 const result = await store.get();
-     
+
                 return result || [];                // [{id,name,createdAt,state}, ...]
             } catch (e) {
-         
+
                 return [];
             }
         },
@@ -2385,7 +2409,7 @@ sap.ui.define([
             try {
                 const store = await this._getPersContainer();
                 await store.set(a || []);
-              
+
             } catch (e) {
                 console.error("[BM] 북마크 목록 저장 실패:", e);
                 throw new Error("북마크 저장 실패: " + (e.message || e));
@@ -2393,7 +2417,7 @@ sap.ui.define([
         },
         _bm_save: async function (name, state) {
             try {
-            
+
                 const a = await this._bm_all();
 
                 // 중복 이름 체크 및 처리
@@ -2415,7 +2439,7 @@ sap.ui.define([
                 a.push(newBookmark);
                 await this._bm_putAll(a);
 
-                
+
                 return id;
             } catch (e) {
                 console.error("[BM] 북마크 저장 실패:", e);
@@ -2424,7 +2448,7 @@ sap.ui.define([
         },
         _bm_delete: async function (id) {
             try {
-                
+
                 const a = await this._bm_all();
                 const filtered = a.filter(b => b.id !== id);
 
@@ -2434,7 +2458,7 @@ sap.ui.define([
                 }
 
                 await this._bm_putAll(filtered);
-          
+
                 return true;
             } catch (e) {
                 console.error("[BM] 북마크 삭제 실패:", e);
@@ -2514,7 +2538,7 @@ sap.ui.define([
         _expandAllDeep: async function (oTable, maxPass = 30) {
             // 북마크 복원 중이면 자동 확장하지 않음
             if (this._bookmarkRestored) {
- 
+
                 return;
             }
 
@@ -2760,7 +2784,7 @@ sap.ui.define([
 
         _captureAppState: async function () {
             try {
-               
+
 
                 const Search = this.getView().getModel("Search")?.getData() || {};
 
@@ -2803,7 +2827,7 @@ sap.ui.define([
                 const collapsedNodes = [];
                 if (ob && oTable && typeof oTable.isExpanded === "function") {
                     const len = ob.getLength();
-           
+
 
                     // 먼저 모든 노드를 접힌 상태로 초기화
                     const allNodes = new Set();
@@ -2821,7 +2845,7 @@ sap.ui.define([
                         allNodes.add(String(id));
                     }
 
-               
+
 
                     // 실제로 UI에서 펼쳐진 노드만 찾기
                     let expandedCount = 0;
@@ -2840,37 +2864,37 @@ sap.ui.define([
                         try {
                             const uiExpanded = !!oTable.isExpanded(i);
 
-     
+
 
                             if (uiExpanded) {
                                 expandedNodes.push(String(id));
                                 expandedCount++;
-                      
+
                             } else {
                                 collapsedNodes.push(String(id));
                                 collapsedCount++;
-                          
+
                             }
                         } catch (e) {
-                        
+
                             // 에러가 발생하면 접힌 상태로 간주
                             collapsedNodes.push(String(id));
                             collapsedCount++;
-                           
+
                         }
                     }
 
- 
+
 
                     // 상태 요약
                     if (expandedCount === 0 && collapsedCount > 0) {
-       
+
                     } else if (expandedCount > 0 && collapsedCount > 0) {
 
                     } else if (expandedCount > 0) {
- 
+
                     } else {
-           
+
                     }
 
                     // 검증: 모든 노드가 캡처되었는지 확인
@@ -2949,7 +2973,7 @@ sap.ui.define([
                     }
                 };
 
-        
+
                 return state;
 
             } catch (e) {
@@ -3023,11 +3047,11 @@ sap.ui.define([
             const oBinding = oTable?.getBinding("rows");
             if (!oTable || !oBinding) return;
 
-            
+
 
             // 여러 번 시도하여 확실히 모든 노드를 접기
             for (let attempt = 1; attempt <= 10; attempt++) {
-       
+
 
                 // 1) collapseAll 시도
                 try {
@@ -3056,7 +3080,7 @@ sap.ui.define([
                         try {
                             if (oTable.isExpanded(i)) {
                                 const nodeId = String(obj.Node ?? obj.NodeID ?? "");
-  
+
                                 oTable.collapse(i);
                                 collapsedCount++;
                                 await this._waitRowsSettled(oTable, 50); // 각 노드 접기 후 잠시 대기
@@ -3089,7 +3113,7 @@ sap.ui.define([
 
 
                 if (stillExpanded.length > 0) {
-  
+
                 }
 
                 // 4) 모든 노드가 접혔는지 확인
@@ -3152,21 +3176,21 @@ sap.ui.define([
                         if (isExpanded) {
                             try {
                                 oTable.collapse(nodeInfo.index);
- 
+
                                 collapsedCount++;
                                 await this._waitRowsSettled(oTable, 100);
 
                                 // 접기 후 상태 재확인
                                 if (oTable.isExpanded(nodeInfo.index)) {
                                     stillExpanded.push(id);
-           
+
                                 }
                             } catch (e) {
                                 console.error(`[BM] 노드 접기 실패: ${id}`, e.message);
                                 stillExpanded.push(id);
                             }
                         } else {
- 
+
                         }
                     } else {
                         console.warn(`[BM] 노드 ${id}를 찾을 수 없음`);
@@ -3248,7 +3272,7 @@ sap.ui.define([
                 if (s.Search && oSearch) {
                     try {
                         oSearch.setData({ ...oSearch.getData(), ...s.Search });
-                   
+
                     } catch (e) {
                         console.warn("[BM] 검색 모델 복원 실패:", e);
                     }
@@ -3362,7 +3386,7 @@ sap.ui.define([
                     templateShareable: false,
                     template: new sap.m.StandardListItem({
                         title: "{Bookmarkname}",
-                        description: "{CreatedDate}",
+                        // description: "",
                         icon: "sap-icon://bookmark",
                         type: "Inactive"
                     })
@@ -3503,7 +3527,7 @@ sap.ui.define([
 
                 await this._applyBookmarkItemsToTable(items);
                 sap.m.MessageToast.show(`"${head.Bookmarkname}" 북마크를 적용했습니다.`);
-   
+
 
             } catch (e) {
                 console.error("북마크 적용 중 오류:", e);
@@ -3571,18 +3595,18 @@ sap.ui.define([
         // Key(=Hierarchyid|Node)로 행 인덱스를 찾아 부모→자식 순서로 expand
         _expandNodesByKeyWithParents: async function (keys) {
             if (!Array.isArray(keys) || !keys.length) {
-           
+
                 return;
             }
 
             const oTable = this.byId("T_Main");
             const ob = oTable?.getBinding("rows");
             if (!oTable || !ob) {
-    
+
                 return;
             }
 
-           
+
 
             // 더 안정적인 확장을 위해 순차적으로 처리
             const maxRetries = 8;
@@ -3591,7 +3615,7 @@ sap.ui.define([
 
             while (retryCount < maxRetries && processedNodes.size < keys.length) {
                 const len = ob.getLength();
-              
+
 
                 let foundInThisRound = 0;
 
@@ -3614,14 +3638,14 @@ sap.ui.define([
                     }
 
                     if (foundIndex >= 0) {
-                  
+
 
                         // 확장 전 상태 확인
                         try {
                             const isExpandedBefore = oTable.isExpanded(foundIndex);
-                   
+
                         } catch (e) {
-                  
+
                         }
 
                         foundInThisRound++;
@@ -3631,19 +3655,19 @@ sap.ui.define([
                             const obj = ob.getContextByIndex(foundIndex)?.getObject?.();
                             if (obj) {
                                 const parentPath = this._buildParentPath(obj, ob, len);
-                                
+
 
                                 // 부모부터 순서대로 확장 (각 단계마다 충분히 대기)
                                 for (const parentId of parentPath) {
                                     const parentIndex = this._findNodeIndex(parentId, ob, len);
                                     if (parentIndex >= 0 && !oTable.isExpanded(parentIndex)) {
-                                       
+
                                         try {
-                                           
+
                                             oTable.expand(parentIndex);
                                             await this._waitRowsSettled(oTable, 300);
                                         } catch (e) {
-                                         
+
                                         }
                                     }
                                 }
@@ -3651,61 +3675,61 @@ sap.ui.define([
                                 // 마지막에 타겟 노드 확장
                                 if (!oTable.isExpanded(foundIndex)) {
                                     try {
-                                  
+
                                         oTable.expand(foundIndex);
                                         await this._waitRowsSettled(oTable, 300);
                                     } catch (e) {
-                                       
+
                                     }
                                 }
 
                                 // 확장 후 상태 확인
                                 try {
                                     const isExpandedAfter = oTable.isExpanded(foundIndex);
-                                   
+
                                     if (isExpandedAfter) {
-                                        
+
                                     } else {
-                                       
+
                                     }
                                 } catch (e) {
-                          
+
                                 }
 
                                 // 성공적으로 처리된 노드로 표시
                                 processedNodes.add(nodeId);
                             }
                         } catch (e) {
-                   
+
                         }
                     } else {
-             
+
                     }
                 }
 
-             
+
 
                 // 이번 라운드에서 찾은 노드가 없으면 더 이상 진행할 수 없음
                 if (foundInThisRound === 0) {
-      
+
                     break;
                 }
 
                 // 모든 노드를 처리했으면 종료
                 if (processedNodes.size >= keys.length) {
-           
+
                     break;
                 }
 
                 // 다음 라운드를 위해 대기
                 retryCount++;
                 if (retryCount < maxRetries) {
-               
+
                     await this._waitRowsSettled(oTable, 500);
                 }
             }
 
- 
+
         },
 
         // 노드의 부모 경로를 찾아서 반환
@@ -3768,13 +3792,13 @@ sap.ui.define([
 
                 const nodeInfo = nodeMap.get(current);
                 if (!nodeInfo) {
-                
+
                     break;
                 }
 
                 const obj = nodeInfo.obj;
                 const parentId = String(obj.ParentNodeID ?? obj.ParentNode ?? "");
-                
+
 
                 if (!parentId) break;
 
@@ -3782,32 +3806,32 @@ sap.ui.define([
             }
 
             const result = path.reverse(); // 루트부터 순서대로
-        
+
             return result;
         },
 
 
         _attachDrillStateSync: function () {
             // 로컬 스토리지 기반 북마크 시스템에서는 사용하지 않음
-         
+
         },
 
 
         _collectBookmarkItemsForDB_UI: function () {
             // 로컬 스토리지 기반 북마크 시스템에서는 사용하지 않음
-           
+
             return [];
         },
 
         _restoreExpandStateFromDB: async function (expandedItems /* from DB */) {
             // 로컬 스토리지 기반 북마크 시스템에서는 사용하지 않음
-      
+
         },
 
 
         _expandToLevel: async function (level) {
             // 로컬 스토리지 기반 북마크 시스템에서는 사용하지 않음
-      
+
         },
 
 
@@ -3816,13 +3840,13 @@ sap.ui.define([
         // target 레벨까지 필요한 부모는 모두 펼친다 (사용하지 않음)
         _ensureExpandedUpToLevel: async function (targetLevel, maxPass = 20) {
             // 로컬 스토리지 기반 북마크 시스템에서는 사용하지 않음
-            
+
         },
 
         // targetLevel보다 "깊은(>)" 노드는 역순으로 접는다 (사용하지 않음)
         _collapseDeeperThan: async function (targetLevel, maxPass = 12) {
             // 로컬 스토리지 기반 북마크 시스템에서는 사용하지 않음
-           
+
         },
 
 
@@ -4039,7 +4063,7 @@ sap.ui.define([
         _getPersContainer: async function () {
             try {
                 const Pers = await sap.ushell.Container.getServiceAsync("Personalization");
-               
+
                 const scope = {
                     keyCategory: Pers.constants.keyCategory.FIXED_KEY,
                     writeFrequency: Pers.constants.writeFrequency.HIGH,
@@ -4134,7 +4158,7 @@ sap.ui.define([
                     const keepCount = Math.max(3, Math.floor(bookmarks.length * 0.6)); // 최소 3개, 최대 60% 유지
                     const cleaned = bookmarks.slice(-keepCount);
                     localStorage.setItem(BM_KEY, JSON.stringify(cleaned));
-             
+
                 }
             } catch (e) {
                 console.error("[BM] 북마크 정리 실패:", e);
@@ -4188,7 +4212,7 @@ sap.ui.define([
 
             // 이전 Application 필터 신경쓰지 말고 "한 번에" 덮어쓰기
             oBinding.filter(aBase.concat(aSearch, aCol), sap.ui.model.FilterType.Application);
-            
+
             // 스크롤 위치 복원
             if (oTable.setFirstVisibleRow && currentFirstVisibleRow > 0) {
                 setTimeout(() => {
@@ -4288,7 +4312,7 @@ sap.ui.define([
             await this._waitRowsSettled(oTable, 180);
             this._refreshColumnIndexMap?.();
             this._applyGroupRowColors?.();
-            
+
             // 스크롤 위치 복원
             if (oTable.setFirstVisibleRow && currentFirstVisibleRow > 0) {
                 setTimeout(() => {
@@ -4440,16 +4464,30 @@ sap.ui.define([
 
         _setGLKeys: function (keys, cause) {
             const next = new Set([...(keys || [])].map(String));
-            if (this._sameSet(this._glKeys, next)) return; 
+            // 동일해도 OK 시에는 필터/토큰 재적용을 허용 (menu-ok는 항상 진행)
+            if (cause !== "menu-ok" && this._sameSet(this._glKeys, next)) return;
 
-            this._glKeys = next;
+
+
+            // _glKeys 업데이트는 OK 버튼에서만 수행
+            if (cause === "menu-ok") {
+                this._glKeys = next;
+   
+            }
 
             // 1) 토큰 동기화
             this._syncGLTokens();
 
-            // 2) 리스트 선택 복원(이벤트 억제)
+            // 2) 리스트 선택 복원(이벤트 억제) - 전역 플래그 설정
+            this._isRestoringSelections = true;
+       
+
             this._restoreSelectionsInList("L_GlAccount");
             this._restoreSelectionsInList("L_GlAccountText");
+
+            // 이벤트 억제 플래그 해제
+            this._isRestoringSelections = false;
+ 
 
             // 3) 테이블 필터 적용
             this._applyGLAccountFilterFromKeys();
@@ -4457,17 +4495,63 @@ sap.ui.define([
 
         // 현재 전역 키셋 기준으로 리스트 선택 복원
         _restoreSelectionsInList: function (sListId) {
+     
             const oList = this.byId(sListId);
-            const oItemsBinding = oList && oList.getBinding("items");
-            if (!oList || !oItemsBinding) return;
+            if (!oList) return;
+
+            // L_GlAccount는 sap.ui.table.Table이므로 rows 바인딩 확인
+            const oItemsBinding = oList.getBinding("items") || oList.getBinding("rows");
+            if (!oItemsBinding) return;
 
             const oWantedSet = this._glKeys;
-            (oList.getItems() || []).forEach(oItem => {
-                const oCtx = oItem.getBindingContext("GLALL");
-                const sCode = oCtx && String(oCtx.getProperty("GLAccount") || "");
-                if (!sCode) return;
-                oList.setSelectedItem(oItem, oWantedSet.has(sCode), true);
-            });
+
+
+
+            // 선택된 항목이 없으면 아무것도 선택하지 않음
+            if (!oWantedSet || oWantedSet.size === 0) {
+    
+                return;
+            }
+
+
+			// Table인 경우 - 바인딩 전체를 스캔하여 선택 복원(보이는 10행 제한 회피)
+			if (oList.getRows) {
+		
+				const ob = oList.getBinding("rows");
+				if (ob && ob.getLength && ob.getContextByIndex) {
+					const n = ob.getLength();
+					for (let i = 0; i < n; i++) {
+						const ctx = ob.getContextByIndex(i);
+						const sCode = ctx && ctx.getProperty && ctx.getProperty("GLAccount");
+						if (sCode && oWantedSet.has(String(sCode))) {
+							try { oList.addSelectionInterval(i, i); } catch (e) { /* noop */ }
+						}
+					}
+					
+				} else {
+					// 폴백: 모델 데이터 전수 스캔
+					const items = oList.getModel("GLALL")?.getProperty("/items") || [];
+					for (let i = 0; i < items.length; i++) {
+						const sCode = items[i] && items[i].GLAccount;
+						if (sCode && oWantedSet.has(String(sCode))) {
+							try { oList.addSelectionInterval(i, i); } catch (e2) { /* noop */ }
+						}
+					}
+				}
+			} else {
+                // List인 경우 기존 로직 사용
+                const aItems = oList.getItems ? oList.getItems() : [];
+                aItems.forEach((oItem, iIndex) => {
+                    const oCtx = oItem.getBindingContext("GLALL");
+                    const sCode = oCtx && String(oCtx.getProperty("GLAccount") || "");
+                    if (!sCode) return;
+
+                    if (oWantedSet.has(sCode)) {
+                        oList.setSelectedItem(oItem, true, true);
+                    }
+                });
+            }
+
         },
 
         // 전역 키셋으로 실제 테이블 필터 적용 (Application 영역)
@@ -4475,6 +4559,7 @@ sap.ui.define([
             const oTable = this.byId("T_Main");
             const ob = oTable && oTable.getBinding("rows");
             if (!ob) return;
+
 
             // 현재 스크롤 위치 저장
             const currentFirstVisibleRow = oTable.getFirstVisibleRow ? oTable.getFirstVisibleRow() : 0;
@@ -4501,22 +4586,48 @@ sap.ui.define([
                 if (oKept) aOtherFilters.push(oKept);
             });
 
-            // 2) 현재 선택 키셋으로 OR 필터 새로 구성
-            let oGlOr = null;
-            if (this._glKeys && this._glKeys.size) {
-                const ors = Array.from(this._glKeys).map(k => new Filter("GlAccount", OP.EQ, String(k)));
-                oGlOr = new Filter({ and: false, filters: ors });
-            }
 
-            // 3) 교체 적용 (Application 영역)
-            const aNextFilters = oGlOr ? aOtherFilters.concat(oGlOr) : aOtherFilters;
-            ob.filter(aNextFilters, sap.ui.model.FilterType.Application);
+            // 2) 현재 선택 키셋 처리: 임계치 초과 시 페이지 방식으로 전환하여 긴 URL 방지
+            const PAGE_SIZE = 125;
+            const selCount = this._glKeys ? this._glKeys.size : 0;
+            if (selCount > PAGE_SIZE) {
+                const aSel = Array.from(this._glKeys || []);
+                const chunks = [];
+                for (let i = 0; i < aSel.length; i += PAGE_SIZE) chunks.push(aSel.slice(i, i + PAGE_SIZE));
+                this._glPages = chunks;
+                this._glPageIndex = 0;
+                this._glPaged = true;
+                this._updateGlPagingToolbar();
+
+                // 거대한 OR 필터는 Application에 적용하지 않고, 페이지 바인딩으로 대체
+                this._bindTableWithGlPage(oTable, 0);
+         
+
+                // 스크롤 위치 기록 업데이트
+                this._currentFirstVisibleRow = oTable.getFirstVisibleRow ? oTable.getFirstVisibleRow() : 0;
+                return;
+            } else {
+                // 2-소량: OR 필터로 직접 적용
+                let oGlOr = null;
+                if (selCount > 0) {
+                    const ors = Array.from(this._glKeys).map(k => new Filter("GlAccount", OP.EQ, String(k)));
+                    oGlOr = new Filter({ and: false, filters: ors });
+                   
+                } else {
+                    
+                }
+
+                // 3) 교체 적용 (Application 영역)
+                const aNextFilters = oGlOr ? aOtherFilters.concat(oGlOr) : aOtherFilters;
+            
+                ob.filter(aNextFilters, sap.ui.model.FilterType.Application);
+            }
 
             // (선택) 색/하이라이트 재적용
             this._applyGroupRowColors && this._applyGroupRowColors();
             this._restoreSelectionsInList("L_GlAccount");
             this._restoreSelectionsInList("L_GlAccountText");
-            
+
             // 스크롤 위치 복원
             if (oTable.setFirstVisibleRow && currentFirstVisibleRow > 0) {
                 setTimeout(() => {
@@ -4528,17 +4639,9 @@ sap.ui.define([
                 }, 100);
             }
 
-            // GL 페이징 상태도 동기화 (선택 변경 시 다시 계산)
+            // GL 페이징 상태도 동기화 (소량 선택이면 페이징 해제)
             const aSel = Array.from(this._glKeys || []);
-            if (aSel.length > 0) {
-                const chunks = [];
-                const pageSize = 125;
-                for (let i = 0; i < aSel.length; i += pageSize) chunks.push(aSel.slice(i, i + pageSize));
-                this._glPages = chunks;
-                this._glPageIndex = Math.min(this._glPageIndex | 0, Math.max(0, chunks.length - 1));
-                this._glPaged = true;
-                this._updateGlPagingToolbar();
-            } else {
+            if (aSel.length === 0) {
                 this._glPaged = false;
                 this._glPages = [];
                 this._glPageIndex = 0;
@@ -4551,25 +4654,41 @@ sap.ui.define([
 
         onGlAccountMenuBeforeOpen: async function () {
             try {
+                // _glKeys가 비어있으면 기존 토큰에서 복원 시도
+                if (!this._glKeys || this._glKeys.size === 0) {
+                    
+                    const oMI = this.byId("MI_GlAccountSelected");
+                    if (oMI && oMI.getTokens && oMI.getTokens().length > 0) {
+                        const existingKeys = new Set();
+                        oMI.getTokens().forEach(token => {
+                            if (token.getKey) {
+                                existingKeys.add(token.getKey());
+                            }
+                        });
+                        this._glKeys = existingKeys;
+                    }
+                } else {
+                }
+
                 // 전체 선택된 경우 빠른 처리
                 if (this._glKeys && this._glKeys.size > 200) {
-                    console.log(`많은 G/L 계정 선택됨 (${this._glKeys.size}개), 빠른 처리`);
-                    
+            
+
                     // 캐시된 데이터가 있으면 사용
                     if (this._glAllData && this._glAllData.length > 0) {
-                        console.log("캐시된 데이터 사용");
+                    
                         const data = this._glAllData;
                         this._setupGlAccountMenuQuickly(data);
                         return;
                     }
-                    
+
                     // 캐시된 데이터가 없으면 빈 데이터로 빠르게 열기
-                    console.log("빈 데이터로 빠르게 열기");
+                
                     const data = [];
                     this._setupGlAccountMenuQuickly(data);
                     return;
                 }
-                
+
                 // 1) 전량 데이터 로딩 (캐시 사용)
                 const data = await this._loadGLAll();
 
@@ -4608,6 +4727,21 @@ sap.ui.define([
 
                 oList.unbindRows();
                 oList.bindRows("GLALL>/items");
+                // 스크롤/행 갱신 시 가시행 선택 재동기화
+                if (!oList._glSelBound) {
+                    const fnSync = function () { 
+                        if (this._glStage && this._glStage.size > 0) {
+                            setTimeout(() => {
+                                this._restoreSelectionsFromSet("L_GlAccount", this._glStage);
+                            }, 50);
+                        }
+                    }.bind(this);
+                    if (oList.attachFirstVisibleRowChanged) oList.attachFirstVisibleRowChanged(fnSync);
+                    if (oList.attachRowsUpdated) oList.attachRowsUpdated(fnSync);
+                    // 추가 스크롤 이벤트
+                    if (oList.attachScroll) oList.attachScroll(fnSync);
+                    oList._glSelBound = true;
+                }
 
                 // 남아있던 검색/필터/소터 제거 및 소터 적용
                 const b = oList.getBinding("rows");
@@ -4620,13 +4754,40 @@ sap.ui.define([
                 const prior = new Set([...(this._glKeys || new Set())]);
                 (oMI.getTokens() || []).forEach(t => prior.add(String(t.getKey())));
 
-                setTimeout(() => { this._restoreSelectionsInList("L_GlAccount"); }, 0);
+                // 메뉴 열기 상태 설정 및 스테이징은 prior를 진실로 사용
+                this._menuOpen = true;
+                this._glStage = new Set(Array.from(prior));
+
+                // 체크박스 선택 복원
+                this._restoreSelectionsFromSet("L_GlAccount", this._glStage);
+
+                // 토큰 생성
+                this._previewTokensFromSet(this._glStage, "MenuOpen_GL");
+
+                // 추가 지연된 선택 복원
+                setTimeout(() => {
+                    this._restoreSelectionsFromSet("L_GlAccount", this._glStage);
+                    this._previewTokensFromSet(this._glStage, "MenuOpen_GL_Delayed_100");
+                }, 100);
+
+                setTimeout(() => {
+                    this._restoreSelectionsFromSet("L_GlAccount", this._glStage);
+                    this._previewTokensFromSet(this._glStage, "MenuOpen_GL_Delayed_300");
+                }, 300);
             } catch (e) {
                 console.error(e);
                 sap.m.MessageToast.show("G/L 계정 목록 로딩 중 오류가 발생했습니다.");
             }
+            // try 블록 실패 시에도 토큰을 기준으로 복원 시도
             this._menuOpen = true;
-            this._glStage = new Set(Array.from(this._glKeys || []));
+            try {
+                const oMI = this.byId("MI_GlAccountSelected");
+                const prior = new Set([...(this._glKeys || new Set())]);
+                (oMI && oMI.getTokens ? oMI.getTokens() : []).forEach(t => prior.add(String(t.getKey())));
+                this._glStage = new Set(Array.from(prior));
+            } catch (e) {
+                this._glStage = new Set(Array.from(this._glKeys || []));
+            }
             this._restoreSelectionsFromSet("L_GlAccount", this._glStage);
             this._previewTokensFromSet(this._glStage, "MenuOpen_GL");
             // GLACCOUNTTEXT 선택된 값들을 GLACCOUNT 토큰에도 즉시 표시
@@ -4701,18 +4862,60 @@ sap.ui.define([
             // 바인딩 설정
             oList.unbindRows();
             oList.bindRows("GLALL>/items");
+            // 스크롤/행 갱신 시 가시행 선택 재동기화
+            if (!oList._glSelBound) {
+                const fnSyncTxt = function () { 
+                    if (this._glStage && this._glStage.size > 0) {
+                        setTimeout(() => {
+                            this._restoreSelectionsFromSet("L_GlAccountText", this._glStage);
+                        }, 50);
+                    }
+                }.bind(this);
+                if (oList.attachFirstVisibleRowChanged) oList.attachFirstVisibleRowChanged(fnSyncTxt);
+                if (oList.attachRowsUpdated) oList.attachRowsUpdated(fnSyncTxt);
+                // 추가 스크롤 이벤트
+                if (oList.attachScroll) oList.attachScroll(fnSyncTxt);
+                oList._glSelBound = true;
+            }
+            // 스크롤/행 갱신 시 가시행 선택 재동기화
+            if (!oList._glSelBound) {
+                const fnSync = function () { 
+                    if (this._glStage && this._glStage.size > 0) {
+                        setTimeout(() => {
+                            this._restoreSelectionsFromSet("L_GlAccount", this._glStage);
+                        }, 50);
+                    }
+                }.bind(this);
+                if (oList.attachFirstVisibleRowChanged) oList.attachFirstVisibleRowChanged(fnSync);
+                if (oList.attachRowsUpdated) oList.attachRowsUpdated(fnSync);
+                // 추가 스크롤 이벤트
+                if (oList.attachScroll) oList.attachScroll(fnSync);
+                oList._glSelBound = true;
+            }
 
             // 메뉴 크기 설정
             if (oMenu.setContentHeight) oMenu.setContentHeight("36rem");
             if (oMenu.setContentWidth) oMenu.setContentWidth("28rem");
 
-            // 메뉴 상태 설정
+            // 메뉴 열기 상태 설정
             this._menuOpen = true;
             this._glStage = new Set(Array.from(this._glKeys || []));
-            
+
+            // 체크박스 선택 복원
+            this._restoreSelectionsFromSet("L_GlAccount", this._glStage);
+
+            // 토큰 생성
+            this._previewTokensFromSet(this._glStage, "QuickSetup_GL");
+
             // 선택 복원을 더 확실하게
-            setTimeout(() => { this._restoreSelectionsInList("L_GlAccount"); }, 100);
-            setTimeout(() => { this._restoreSelectionsInList("L_GlAccount"); }, 500);
+            setTimeout(() => {
+                this._restoreSelectionsFromSet("L_GlAccount", this._glStage);
+                this._previewTokensFromSet(this._glStage, "QuickSetup_GL_Delayed_100");
+            }, 100);
+            setTimeout(() => {
+                this._restoreSelectionsFromSet("L_GlAccount", this._glStage);
+                this._previewTokensFromSet(this._glStage, "QuickSetup_GL_Delayed_500");
+            }, 500);
         },
 
         // G/L 계정 내역 메뉴 빠른 설정 (전체 선택 시)
@@ -4746,7 +4949,7 @@ sap.ui.define([
             // 메뉴 상태 설정
             this._menuOpen = true;
             this._glStage = new Set(Array.from(this._glKeys || []));
-            
+
             // 선택 복원을 더 확실하게
             setTimeout(() => { this._restoreSelectionsInList("L_GlAccountText"); }, 100);
             setTimeout(() => { this._restoreSelectionsInList("L_GlAccountText"); }, 500);
@@ -4756,23 +4959,23 @@ sap.ui.define([
             try {
                 // 전체 선택된 경우 빠른 처리
                 if (this._glKeys && this._glKeys.size > 200) {
-                    console.log(`많은 G/L 계정 선택됨 (${this._glKeys.size}개), 빠른 처리`);
                     
+
                     // 캐시된 데이터가 있으면 사용
                     if (this._glAllData && this._glAllData.length > 0) {
-                        console.log("캐시된 데이터 사용");
+                        
                         const data = this._glAllData;
                         this._setupGlAccountTextMenuQuickly(data);
                         return;
                     }
-                    
+
                     // 캐시된 데이터가 없으면 빈 데이터로 빠르게 열기
-                    console.log("빈 데이터로 빠르게 열기");
+                
                     const data = [];
                     this._setupGlAccountTextMenuQuickly(data);
                     return;
                 }
-                
+
                 // 1) 전량 데이터 로딩 (캐시 사용)
                 const data = await this._loadGLAll();
 
@@ -4824,12 +5027,22 @@ sap.ui.define([
                 const prior = new Set([...(this._glKeys || new Set())]);
                 (oMI.getTokens() || []).forEach(t => prior.add(String(t.getKey())));
 
+                // 스테이징에도 prior 반영
+                this._glStage = new Set(Array.from(prior));
+
                 setTimeout(() => { this._restoreSelectionsInList("L_GlAccountText"); }, 0);
             } catch (e) {
                 console.error(e);
             }
             this._menuOpen = true;
-            this._glStage = new Set(Array.from(this._glKeys || []));   // ← 커밋값 복사
+            try {
+                const oMI = this.byId("MI_GlAccountTextSelected");
+                const prior = new Set([...(this._glKeys || new Set())]);
+                (oMI && oMI.getTokens ? oMI.getTokens() : []).forEach(t => prior.add(String(t.getKey())));
+                this._glStage = new Set(Array.from(prior));
+            } catch (e) {
+                this._glStage = new Set(Array.from(this._glKeys || []));
+            }
             this._restoreSelectionsFromSet("L_GlAccountText", this._glStage);
             this._previewTokensFromSet(this._glStage, "MenuOpen_GLTEXT");
 
@@ -4850,6 +5063,9 @@ sap.ui.define([
         _previewTokensFromSet: function (oInputSet, sEvent) {
             const oGlAllMap = this._getGLAllMap(); // GLAccount -> GLAccountLongName 맵
             const aInputCodes = Array.from(oInputSet || new Set());
+            
+        
+            
             ["MI_GlAccountSelected", "MI_GlAccountTextSelected"].forEach(sControlId => {
                 const oMultiInput = this.byId(sControlId); if (!oMultiInput) return;
                 if (sEvent === "MenuOpen_GL" || sEvent === "MenuOpen_GLTEXT") {
@@ -4867,6 +5083,8 @@ sap.ui.define([
                         return aIndexList;
                     }.bind(this), [])
 
+             
+
                     aSelectedIndices.forEach(function (iSelectedIndex) {
                         try { oTable.addSelectionInterval(iSelectedIndex, iSelectedIndex); } catch (e) { /* noop */ }
                     })
@@ -4874,28 +5092,124 @@ sap.ui.define([
                 } else {
                     oMultiInput.destroyTokens();
                     aTokenSeletedGLAccount = [];
-                    aInputCodes.forEach(sInput => {
-                        const sName = oGlAllMap.get(String(sInput)) || String(sInput);
-                        let oToken = new sap.m.Token({ key: String(sInput), text: `${sName} (${sInput})` });
-                        oMultiInput.addToken(oToken);
-                        aTokenSeletedGLAccount.push(sInput);
-                    });
-                    // }
+                    const MAX_RENDER_TOKENS = 50;
+                    if (aInputCodes.length > MAX_RENDER_TOKENS) {
+                        const total = aInputCodes.length;
+                        const sample = aInputCodes.slice(0, 3).map(k => `${oGlAllMap.get(String(k)) || String(k)} (${k})`).join(", ");
+                        const text = `선택 ${total}개 (${sample} 외 ${total - 3}개)`;
+                        oMultiInput.addToken(new sap.m.Token({ key: "__BULK__", text }));
+                        aTokenSeletedGLAccount = aInputCodes.slice();
+                    } else {
+                        aInputCodes.forEach(sInput => {
+                            const sName = oGlAllMap.get(String(sInput)) || String(sInput);
+                            let oToken = new sap.m.Token({ key: String(sInput), text: `${sName} (${sInput})` });
+                            oMultiInput.addToken(oToken);
+                            aTokenSeletedGLAccount.push(sInput);
+                        });
+                    }
+            
                 }
 
             });
         },
 
         _restoreSelectionsFromSet: function (sListId, oSet) {
-            const oList = this.byId(sListId); const oItemsBinding = oList && oList.getBinding("items");
-            if (!oList || !oItemsBinding) return;
+            const oList = this.byId(sListId);
+            if (!oList) return;
+
+            // 스크롤/필터에 따른 선택 복원 중에는 selectionChange 핸들러를 억제
+            const prevSuppress = !!this._isRestoringSelections;
+            this._isRestoringSelections = true;
+
+            // L_GlAccount는 sap.ui.table.Table이므로 rows 바인딩 확인
+            const oItemsBinding = oList.getBinding("items") || oList.getBinding("rows");
+            if (!oItemsBinding) { this._isRestoringSelections = prevSuppress; return; }
+
             const oWanted = new Set(Array.from(oSet || new Set()).map(String));
-            oList.removeSelections(true);
-            (oList.getItems() || []).forEach(oItem => {
-                const sCode = oItem.getBindingContext("GLALL")?.getProperty("GLAccount");
-                if (!sCode) return;
-                oList.setSelectedItem(oItem, oWanted.has(String(sCode)), true/*suppress*/);
-            });
+
+            // Table인 경우 clearSelection, List인 경우 removeSelections
+            if (oList.clearSelection) {
+                oList.clearSelection();
+            } else if (oList.removeSelections) {
+                oList.removeSelections(true);
+            }
+
+            // 선택된 항목이 없으면 아무것도 선택하지 않음
+            if (oWanted.size === 0) {
+                this._isRestoringSelections = prevSuppress;
+                return;
+            }
+
+			// Table인 경우 - 화면에 보이는 행(약 10개)만 보지 말고 전체 모델 인덱스로 선택 복원
+			if (oList.getRows) {
+				try {
+					const oBinding = oList.getBinding("rows");
+					if (oBinding && oBinding.getLength && oBinding.getContextByIndex) {
+						const n = oBinding.getLength();
+						const CHUNK = 200; // 배치 복원으로 렉 완화
+						let start = 0;
+						const step = () => {
+							const end = Math.min(n, start + CHUNK);
+							for (let i = start; i < end; i++) {
+								const ctx = oBinding.getContextByIndex(i);
+								const sCode = ctx && ctx.getProperty && ctx.getProperty("GLAccount");
+								if (sCode && oWanted.has(String(sCode))) {
+									try { oList.addSelectionInterval(i, i); } catch (eSel) { /* noop */ }
+								}
+							}
+							start = end;
+							if (start < n) { setTimeout(step, 0); }
+						};
+						step();
+
+					} else {
+						// 폴백: 모델 배열 전체 인덱스 기반
+						const aAllItems = oList.getModel("GLALL")?.getProperty("/items") || [];
+						const n = aAllItems.length;
+						const CHUNK = 200;
+						let start = 0;
+						const step = () => {
+							const end = Math.min(n, start + CHUNK);
+							for (let i = start; i < end; i++) {
+								const sCode = aAllItems[i] && aAllItems[i].GLAccount;
+								if (sCode && oWanted.has(String(sCode))) {
+									try { oList.addSelectionInterval(i, i); } catch (eIdx) { /* noop */ }
+								}
+							}
+							start = end;
+							if (start < n) { setTimeout(step, 0); }
+						};
+						step();
+					}
+				} catch (e) {
+					// 최후 폴백: 화면 보이는 행 기준
+					const aRows = oList.getRows() || [];
+					const first = (typeof oList.getFirstVisibleRow === "function") ? oList.getFirstVisibleRow() : 0;
+					aRows.forEach((oRow, iIndex) => {
+						const sCode = oRow.getBindingContext("GLALL")?.getProperty("GLAccount");
+						if (!sCode) return;
+						if (oWanted.has(String(sCode))) {
+							try {
+								const absIndex = (typeof oRow.getIndex === "function") ? oRow.getIndex() : (first + iIndex);
+								oList.addSelectionInterval(absIndex, absIndex);
+							} catch (e2) { /* noop */ }
+						}
+					});
+				}
+			} else {
+                // List인 경우 기존 로직 사용
+                const aItems = oList.getItems ? oList.getItems() : [];
+                aItems.forEach((oItem, iIndex) => {
+                    const sCode = oItem.getBindingContext("GLALL")?.getProperty("GLAccount");
+                    if (!sCode) return;
+
+                    if (oWanted.has(String(sCode))) {
+                        oList.setSelectedItem(oItem, true, true);
+                    }
+                });
+            }
+            // 복원 종료 후 억제 플래그 원복
+            this._isRestoringSelections = prevSuppress;
         },
 
         // ========================================================
@@ -4932,7 +5246,7 @@ sap.ui.define([
         // 헤더 목록
         _loadBookmarkHeads: async function () {
             try {
-         
+
 
                 const oModel = this._getOData();
                 if (!oModel) {
@@ -4943,7 +5257,7 @@ sap.ui.define([
                 const aBookmarks = await new Promise((resolve, reject) => {
                     oModel.read("/BookMark_Head", {
                         success: (oData) => {
-                          
+
                             resolve(oData.results || []);
                         },
                         error: (oError) => {
@@ -4970,7 +5284,7 @@ sap.ui.define([
         // 특정 헤더의 아이템
         _loadBookmarkItems: async function (bookmarkId) {
             try {
-          
+
 
                 const oModel = this._getOData();
                 if (!oModel) {
@@ -4982,7 +5296,7 @@ sap.ui.define([
                     oModel.read("/BookMark_Item", {
                         filters: [new sap.ui.model.Filter("Bookmarkid", sap.ui.model.FilterOperator.EQ, bookmarkId)],
                         success: (oData) => {
-              
+
                             resolve(oData.results || []);
                         },
                         error: (oError) => {
@@ -4998,14 +5312,14 @@ sap.ui.define([
 
                 aItems.forEach(oItem => {
                     if (oItem.Node) {
-                        
+
                         if (oItem.Drillstate === "expanded") {
                             aExpandedNodes.push(oItem.Node);
 
                         } else {
                             // "leaf"이거나 다른 값이면 접힌 상태로 간주
                             aCollapsedNodes.push(oItem.Node);
-                         
+
                         }
                     }
                 });
@@ -5022,7 +5336,7 @@ sap.ui.define([
                     }
                 };
 
-           
+
                 return oState;
 
             } catch (e) {
@@ -5035,7 +5349,7 @@ sap.ui.define([
         // 삭제 (DB에서 제거)
         _deleteBookmarkFromDB: async function (bookmarkId) {
             try {
-                
+
 
                 const oModel = this._getOData();
                 if (!oModel) {
@@ -5074,7 +5388,7 @@ sap.ui.define([
                     // createKey 는 "BookMark_Head(...)" 형태를 반환하므로 앞에만 '/'를 붙여야 함
                     oModel.remove(`/${sHeadKey}`, {
                         success: () => {
-                     
+
                             resolve();
                         },
                         error: reject
@@ -5098,7 +5412,7 @@ sap.ui.define([
 
         _collectBookmarkItemsForDB: function (state) {
             try {
-       
+
 
                 if (!state || !state.tableState || !state.tableState.tree) {
                     console.warn("[BM] 상태 데이터가 올바르지 않습니다:", state);
@@ -5112,7 +5426,7 @@ sap.ui.define([
 
                 // 펼쳐진 노드들만 저장 (DrillState = "expanded")
                 if (oTreeState.expandedNodes && Array.isArray(oTreeState.expandedNodes)) {
-           
+
                     oTreeState.expandedNodes.forEach((sNodeId, nIndex) => {
                         const oItem = {
                             Hierarchyid: "",
@@ -5127,7 +5441,7 @@ sap.ui.define([
                             Top: 0
                         };
                         aItems.push(oItem);
-          
+
                     });
                 }
 
@@ -5144,7 +5458,7 @@ sap.ui.define([
                 const bHas2000Collapsed = oTreeState.collapsedNodes?.includes("2000");
 
 
-            
+
                 return aItems;
 
             } catch (e) {
@@ -5157,7 +5471,7 @@ sap.ui.define([
 
         saveBookmarkToDB: async function (bookmarkName) {
             try {
-  
+
 
                 // 입력 검증
                 if (!bookmarkName || typeof bookmarkName !== 'string') {
@@ -5171,7 +5485,7 @@ sap.ui.define([
                     if (!oState || typeof oState !== 'object') {
                         throw new Error("앱 상태를 캡처할 수 없습니다.");
                     }
-       
+
                 } catch (e) {
                     console.error("앱 상태 캡처 실패:", e);
                     throw new Error("현재 화면 상태를 저장할 수 없습니다. 다시 시도해주세요.");
@@ -5224,7 +5538,7 @@ sap.ui.define([
                     return;
                 }
 
-             
+
 
                 let successCount = 0;
                 let failCount = 0;
@@ -5239,7 +5553,7 @@ sap.ui.define([
                     }
                 }
 
-        
+
 
                 if (successCount > 0) {
                     sap.m.MessageToast.show(`${successCount}개 북마크가 삭제되었습니다.`);
@@ -5258,11 +5572,11 @@ sap.ui.define([
                 const oTable = this.byId("T_Main");
                 const ob = oTable?.getBinding("rows");
                 if (!ob) {
-              
+
                     return sap.m.MessageToast.show("먼저 조회를 실행하세요.");
                 }
 
-         
+
 
                 // 테이블이 로딩 중인지 확인
                 if (oTable.getBusy()) {
@@ -5525,7 +5839,7 @@ sap.ui.define([
 
         _saveBookmarkToDB_direct: async function (name, rawItems) {
             try {
-               
+
 
                 const oModel = this._getOData();
                 if (!oModel) {
@@ -5540,10 +5854,10 @@ sap.ui.define([
                     const oMeta = await this._resolveBookmarkMeta();
                     sNavName = oMeta.navName || "to_Item";
                     bItemCreatable = oMeta.itemCreatable !== false;
-               
+
                 } catch (oMetaError) {
                     console.warn("[BM] 메타 정보 해석 실패, 기본값 사용:", oMetaError.message);
-               
+
                 }
 
                 // 2) 헤더 생성
@@ -5555,7 +5869,7 @@ sap.ui.define([
                                 reject(new Error("서버가 Bookmarkid를 반환하지 않았습니다."));
                                 return;
                             }
-                          
+
                             resolve(sId);
                         },
                         error: (oError) => {
@@ -5611,12 +5925,12 @@ sap.ui.define([
                                     if (+oChangeResp.statusCode >= 400) aErrors.push((oChangeResp.response && oChangeResp.response.body) || oChangeResp.message || "change error");
                                 });
                             });
-                        
+
                             if (aErrors.length) {
                                 reject(new Error("아이템 저장 실패\n" + aErrors.join("\n\n")));
                                 return;
                             }
-                          
+
                             resolve();
                         },
                         error: (oError) => {
@@ -5709,7 +6023,7 @@ sap.ui.define([
                 const oEntitySetItem = oMetaModel.getODataEntitySet("BookMark_Item");
                 const bItemCreatable = !oEntitySetItem || oEntitySetItem["sap:creatable"] !== "false"; // 없으면 true로 간주
 
-            
+
                 return { navName: sNavName, itemCreatable: bItemCreatable };
 
             } catch (e) {
