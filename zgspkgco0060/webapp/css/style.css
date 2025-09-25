@@ -73,9 +73,26 @@
   background-color: #fff7bf !important;
 }
 
-/* 인쇄 시 강제 컬러 유지 */
+/* 인쇄 시 화면과 동일하게 색상 유지 */
 @media print {
-  td.sumCellYellow { background-color:#fff7bf !important; }
+  /* 화면에 표시된 색상을 그대로 프린터에 출력 */
+  .sumCellYellow,
+  .sumCellYellow .sapUiTableCell,
+  .sumCellYellow .sapMText,
+  .sumCellYellow .sapUiTv,
+  td.sumCellYellow {
+    background-color: #fff7bf !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  /* 선택/호버 상태도 프린터에서 유지 */
+  .sapUiTableRowSel td.sumCellYellow,
+  .sapUiTableRowHvr td.sumCellYellow {
+    background-color: #fff7bf !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
 }
 
 /* sap.ui.table.Table 셀 */

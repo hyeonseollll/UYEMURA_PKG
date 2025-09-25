@@ -312,7 +312,7 @@ sap.ui.define([
                 this._bindTable(oTable);
             }
         },
-        onExport: function () {
+        onExport: async function () {
             const oBExcel = this.getView().byId(Control.Button.B_Excel);
             if (oBExcel) oBExcel.setBusy(true);
 
@@ -320,8 +320,28 @@ sap.ui.define([
             const oRowBinding = oTreeTable && oTreeTable.getBinding('rows');
             if (!oRowBinding) { if (oBExcel) oBExcel.setBusy(false); return; }
 
-            // 1) 엑셀로 보낼 데이터 수집(기존 그대로)
-            const aExportData = [];
+            try {
+                // 1) 전체 데이터 수집 (페이징된 경우 모든 페이지)
+                let aExportData = [];
+                
+                if (this._glPaged && this._glPages && this._glPages.length > 0) {
+                    // GL 계정 페이징된 경우: 모든 페이지의 데이터를 순차적으로 가져옴
+                    const oTable = this.byId(Control.Table.T_Main);
+                    const originalPageIndex = this._glPageIndex;
+                    
+                    for (let pageIndex = 0; pageIndex < this._glPages.length; pageIndex++) {
+                        // 각 페이지를 바인딩하고 데이터 수집
+                        this._bindTableWithGlPage(oTable, pageIndex);
+                        await this._waitForDataLoad(oTable);
+                        
+                        const pageData = this._collectCurrentPageData(oTable);
+                        aExportData = aExportData.concat(pageData);
+                    }
+                    
+                    // 원래 페이지로 복원
+                    this._bindTableWithGlPage(oTable, originalPageIndex);
+                } else {
+                    // 일반적인 경우: 현재 바인딩된 데이터 사용
             const iRowCount = oRowBinding.getLength();
             const aNodes = (typeof oRowBinding.getNodes === "function") ? oRowBinding.getNodes() : [];
 
@@ -331,40 +351,23 @@ sap.ui.define([
 
                 const oRowData = Object.assign({}, ctx.getObject());
                 oRowData.HierarchyLevel = aNodes[i] ? aNodes[i].level : 0;
+                        aExportData.push(oRowData);
+                    }
+                }
 
-                // 기간/비교기간 잔액 포맷
-                oRowData.PeriodBalance =
-                    this.formatter.currencyHideZeroForBsPl(
-                        oRowData.PeriodBalance,
-                        oRowData.CompanyCodeCurrency,
-                        oRowData.NodeText
-                    );
+                // 2) 각 행의 금액/차이 값을 숫자형으로 유지 (엑셀 숫자 서식 적용)
+                aExportData = aExportData.map(oRowData => {
+                    const toNum = (v) => (v === null || v === undefined || v === "") ? null : Number(v);
 
-                oRowData.ComparisonBalance =
-                    this.formatter.currencyHideZeroForBsPl(
-                        oRowData.ComparisonBalance,
-                        oRowData.CompanyCodeCurrency,
-                        oRowData.NodeText
-                    );
+                    oRowData.PeriodBalance = toNum(oRowData.PeriodBalance);
+                    oRowData.ComparisonBalance = toNum(oRowData.ComparisonBalance);
+                    oRowData.AbsoluteDifference = toNum(oRowData.AbsoluteDifference);
+                    oRowData.RelativeDifference = toNum(oRowData.RelativeDifference);
 
-                // 절대/상대 차이 포맷
-                oRowData.AbsoluteDifference =
-                    this.formatter.absDiffFixed2AutoScale(
-                        oRowData.AbsoluteDifference,
-                        oRowData.CompanyCodeCurrency,
-                        oRowData.NodeText,
-                        oRowData.PeriodBalance,
-                        oRowData.ComparisonBalance
-                    );
+                    return oRowData;
+                });
 
-                oRowData.RelativeDifference =
-                    this.formatter.formatAbsDiff(
-                        oRowData.RelativeDifference,
-                        oRowData.NodeText
-                    );
-                aExportData.push(oRowData);
-            }
-            // 2) 기본 컬럼 정의 가져오기 (정적 → 동적)
+                // 3) 기본 컬럼 정의 가져오기 (정적 → 동적)
             const aCols = this._getVisibleColumnConfigFromTable();
 
             // 3) 기간 라벨 덮어쓰기 (동일)
@@ -385,10 +388,35 @@ sap.ui.define([
             if (colCB) colCB.label = this.i18n.getText("ComparisonBalance") + " " + compareLabel;
 
 
-            // 4) 스프레드시트 설정 및 생성
+            // 4) 스프레드시트 설정 및 생성 (요약 행 색칠 포함)
+            // 각 행에 스타일 정보를 추가
+            const aStyledData = aExportData.map((rowData) => {
+                const hasGl = !!(rowData.GlAccount && rowData.GlAccount.toString().trim());
+                const hasAmt = this._hasAnyAmount(rowData, [
+                    "PeriodBalance", "ComparisonBalance", "AbsoluteDifference", "RelativeDifference"
+                ]);
+                const isSummaryRow = !hasGl && hasAmt;
+                
+                // 스타일 정보를 데이터에 추가
+                const styledRow = Object.assign({}, rowData);
+                if (isSummaryRow) {
+                    styledRow.__style = 'summaryRowStyle';
+                }
+                return styledRow;
+            });
+
             const oSettings = {
-                workbook: { columns: aCols, hierarchyLevel: 'HierarchyLevel' },
-                dataSource: aExportData,
+                workbook: { 
+                    columns: aCols, 
+                    hierarchyLevel: 'HierarchyLevel',
+                    styles: [
+                        {
+                            name: 'summaryRowStyle',
+                            backgroundColor: '#fff7bf'
+                        }
+                    ]
+                },
+                dataSource: aStyledData,
                 fileName: (this.i18n.getText("title") || "Report") + "_" + (new Date()).toISOString() + '.xlsx',
                 worker: true
             };
@@ -398,6 +426,12 @@ sap.ui.define([
                 oSheet.destroy();
                 if (oBExcel) oBExcel.setBusy(false);
             });
+
+            } catch (error) {
+                console.error("엑셀 다운로드 중 오류 발생:", error);
+                sap.m.MessageToast.show("엑셀 다운로드 중 오류가 발생했습니다.");
+                if (oBExcel) oBExcel.setBusy(false);
+            }
         },
         onPrint: async function () {
             const oTable = this.byId(Control.Table.T_Main);
@@ -1857,11 +1891,13 @@ sap.ui.define([
             aCols.push({ label: this.i18n.getText("NodeText"), type: EdmType.String, property: 'NodeText', width: 30 });
             aCols.push({ label: this.i18n.getText("GlAccount"), type: EdmType.String, property: 'GlAccount', width: 12 });
             aCols.push({ label: this.i18n.getText("GlAccountText"), type: EdmType.String, property: 'GlAccountText', width: 30 });
-            aCols.push({ label: this.i18n.getText("PeriodBalance"), type: EdmType.Currency, property: 'PeriodBalance', width: 20 });
-            aCols.push({ label: this.i18n.getText("ComparisonBalance"), type: EdmType.Currency, property: 'ComparisonBalance', width: 20 });
-            aCols.push({ label: this.i18n.getText("AbsoluteDifference"), type: EdmType.Currency, property: 'AbsoluteDifference', width: 20 });
-            aCols.push({ label: this.i18n.getText("RelativeDifference"), type: EdmType.Currency, property: 'RelativeDifference', width: 20 });
-            aCols.push({ label: this.i18n.getText("CompanyCodeCurrency"), type: EdmType.Currency, property: 'CompanyCodeCurrency', width: 10 });
+            aCols.push({ label: this.i18n.getText("PeriodBalance"), type: EdmType.Currency, property: 'PeriodBalance', unitProperty: 'CompanyCodeCurrency', displayUnit: false, width: 20 });
+            aCols.push({ label: this.i18n.getText("ComparisonBalance"), type: EdmType.Currency, property: 'ComparisonBalance', unitProperty: 'CompanyCodeCurrency', displayUnit: false, width: 20 });
+            aCols.push({ label: this.i18n.getText("AbsoluteDifference"), type: EdmType.Currency, property: 'AbsoluteDifference', unitProperty: 'CompanyCodeCurrency', displayUnit: false, width: 20 });
+            // 상대차이는 비율/숫자형으로 저장되도록 Number 타입 지정
+            aCols.push({ label: this.i18n.getText("RelativeDifference"), type: EdmType.Number, property: 'RelativeDifference', width: 20 });
+            // 통화코드는 별도 열로 유지(문자열)
+            aCols.push({ label: this.i18n.getText("CompanyCodeCurrency"), type: EdmType.String, property: 'CompanyCodeCurrency', width: 10 });
             return aCols;
         },
 
@@ -1929,11 +1965,11 @@ sap.ui.define([
                         if (key && highlightKeySet.has(key)) return true;
                     }
                 } catch (e) { }
-                // 화면 로직과 동일한 기본 규칙: GL 계정이 있고, 금액이 하나라도 있는 경우만
+                // 화면 로직과 동일한 기본 규칙: GL 계정이 없고, 금액이 하나라도 있는 경우만 (요약 행)
                 if (!r || isBSPL(r)) return false;
-                const hasGl = !!r.GlAccount;
-                if (!hasGl) return false;
-                return anyNonZero(r);
+                const hasGl = !!(r.GlAccount && r.GlAccount.toString().trim());
+                if (hasGl) return false; // G/L 계정이 있으면 색칠하지 않음
+                return anyNonZero(r); // G/L 계정이 없고 금액이 있으면 색칠
             };
 
             const tds = (r, hlRow) => cols.map(c => {
@@ -2469,8 +2505,6 @@ sap.ui.define([
         // ========================================================================
         // ODATA / CLIENT MODE SWITCHING
         // ========================================================================
-
-
         _restoreODataBinding: function () {
             const oTable = this.byId(Control.Table.T_Main);
             oTable.unbindRows();
@@ -2505,7 +2539,6 @@ sap.ui.define([
         },
 
 
-
         _filterTreeByQuery: function (nodes, sQuery) {
             const Q = this._normStr(sQuery);
             const hit = (n) => { const fields = [n.NodeText, n.GlAccountText, n.GlAccount]; const tokens = fields.flatMap(this._tokenize.bind(this)); return tokens.includes(Q); };
@@ -2538,7 +2571,6 @@ sap.ui.define([
         _expandAllDeep: async function (oTable, maxPass = 30) {
             // 북마크 복원 중이면 자동 확장하지 않음
             if (this._bookmarkRestored) {
-
                 return;
             }
 
@@ -2712,8 +2744,6 @@ sap.ui.define([
             return [new sap.ui.model.Filter({ and: false, filters: [new sap.ui.model.Filter("NodeText", sap.ui.model.FilterOperator.Contains, q), new sap.ui.model.Filter("GlAccount", sap.ui.model.FilterOperator.Contains, q), new sap.ui.model.Filter("GlAccountText", sap.ui.model.FilterOperator.Contains, q)] })];
         },
 
-
-
         _getLocalPersoService: function () {
             const KEY = "zgspkgco0060.T_Main.perso";
             return {
@@ -2744,8 +2774,9 @@ sap.ui.define([
                     case "PeriodBalance":
                     case "ComparisonBalance":
                     case "AbsoluteDifference":
-                    case "RelativeDifference":
                         return EdmType.Currency;
+                    case "RelativeDifference":
+                        return EdmType.Number;
                     default:
                         return EdmType.String;
                 }
@@ -2784,7 +2815,6 @@ sap.ui.define([
 
         _captureAppState: async function () {
             try {
-
 
                 const Search = this.getView().getModel("Search")?.getData() || {};
 
@@ -2864,8 +2894,6 @@ sap.ui.define([
                         try {
                             const uiExpanded = !!oTable.isExpanded(i);
 
-
-
                             if (uiExpanded) {
                                 expandedNodes.push(String(id));
                                 expandedCount++;
@@ -2883,8 +2911,6 @@ sap.ui.define([
 
                         }
                     }
-
-
 
                     // 상태 요약
                     if (expandedCount === 0 && collapsedCount > 0) {
@@ -2972,10 +2998,7 @@ sap.ui.define([
                         }
                     }
                 };
-
-
                 return state;
-
             } catch (e) {
                 console.error("[BM] 앱 상태 캡처 실패:", e);
                 throw new Error("앱 상태 캡처 실패: " + (e.message || e));
@@ -3047,8 +3070,6 @@ sap.ui.define([
             const oBinding = oTable?.getBinding("rows");
             if (!oTable || !oBinding) return;
 
-
-
             // 여러 번 시도하여 확실히 모든 노드를 접기
             for (let attempt = 1; attempt <= 10; attempt++) {
 
@@ -3111,7 +3132,6 @@ sap.ui.define([
                     }
                 }
 
-
                 if (stillExpanded.length > 0) {
 
                 }
@@ -3144,8 +3164,6 @@ sap.ui.define([
             const oTable = this.byId(Control.Table.T_Main);
             const oBinding = oTable?.getBinding("rows");
             if (!oTable || !oBinding) return;
-
-
 
             // 여러 번 시도하여 확실히 접기
             for (let attempt = 1; attempt <= retries; attempt++) {
@@ -3212,7 +3230,6 @@ sap.ui.define([
             }
         },
 
-
         _inferColumnProperty: function (col) {
             let prop = (col.getFilterProperty && col.getFilterProperty()) ||
                 (col.getSortProperty && col.getSortProperty());
@@ -3265,8 +3282,6 @@ sap.ui.define([
                     return;
                 }
 
-
-
                 // (a) Search 모델
                 const oSearch = this.getView().getModel("Search");
                 if (s.Search && oSearch) {
@@ -3289,7 +3304,6 @@ sap.ui.define([
                 await this._ensureTPCReady();
                 let usedTPC = false;
                 if (this._oTPC && s.tablePerso && Object.keys(s.tablePerso).length > 0) {
-                    // ★ 빈 객체는 절대 주지 않는다 → 기본 순서로 리셋되는 문제 방지
                     await this._oTPC.getPersoService().setPersData(s.tablePerso);
                     this._oTPC.refresh();
                     usedTPC = true;
@@ -3376,26 +3390,45 @@ sap.ui.define([
                 selCount: 0
             });
 
-            // 3) 리스트 - 생성 날짜를 description으로 표시
-            const list = new sap.m.List({
+            // JSONModel 기본 sizeLimit은 100 → 북마크가 100개 초과 시 잘림 현상 방지
+            // 로드된 개수에 맞춰 넉넉히 확장
+            try {
+                const n = Math.max(1000, (heads && heads.length) ? heads.length : 0);
+                jm.setSizeLimit(n);
+                console.log("[BM] JSONModel sizeLimit 설정:", n);
+                console.log("[BM] 실제 heads 개수:", heads.length);
+            } catch (e) { 
+                console.error("[BM] sizeLimit 설정 실패:", e);
+            }
+
+            // 3) 테이블로 표시 (JSONModel sizeLimit + 서버 페이징 루프 적용되어 전체 표시 가능)
+
+            // 기존 테이블도 유지 (호환성을 위해)
+            const table = new sap.m.Table({
                 mode: sap.m.ListMode.MultiSelect,
                 includeItemInSelection: true,
-                growing: true,
+                showNoData: false,
                 items: {
                     path: "/items",
                     templateShareable: false,
-                    template: new sap.m.StandardListItem({
-                        title: "{Bookmarkname}",
-                        // description: "",
-                        icon: "sap-icon://bookmark",
-                        type: "Inactive"
+                    template: new sap.m.ColumnListItem({
+                        cells: [
+                            new sap.m.Text({
+                                text: "{Bookmarkname}",
+                                wrapping: false
+                            })
+                        ]
                     })
-                }
+                },
+                columns: [
+                    new sap.m.Column({
+                        header: new sap.m.Text({ text: "북마크 이름" })
+                    })
+                ]
             });
 
-            list.attachSelectionChange(() => {
-                const sel = list.getSelectedItems() || [];
-                // ✅ 컨트롤을 모델에 넣지 말고, 순수 값(아이디)만
+            table.attachSelectionChange(() => {
+                const sel = table.getSelectedItems() || [];
                 const ids = sel.map(it => it.getBindingContext().getObject().Bookmarkid);
                 jm.setProperty("/selectedIds", ids);
                 jm.setProperty("/selCount", ids.length);
@@ -3408,17 +3441,16 @@ sap.ui.define([
                 contentWidth: "520px",
                 contentHeight: "60vh",
                 stretchOnPhone: true,
-                content: [list],
+                content: [table],
                 buttons: [
                     // 적용(하나만)
                     new sap.m.Button({
                         text: "적용",
                         type: "Emphasized",
-                        // ★ 표현식 바인딩으로 정확히
                         enabled: "{= ${/selCount} === 1 }",
                         press: async function () {
                             const self = this.getView().getController();
-                            const sel = list.getSelectedItems() || [];
+                            const sel = table.getSelectedItems() || [];
                             if (sel.length !== 1) return sap.m.MessageToast.show("적용은 하나만 선택하세요.");
                             const head = sel[0].getBindingContext().getObject();
                             dlg.setBusy(true);
@@ -3442,7 +3474,7 @@ sap.ui.define([
                         enabled: "{= ${/selCount} > 0 }",
                         press: function () {
                             const self = this.getView().getController();
-                            const sel = list.getSelectedItems() || [];
+                            const sel = table.getSelectedItems() || [];
                             if (!sel.length) return;
                             sap.m.MessageBox.confirm(`선택한 ${sel.length}개 북마크를 삭제할까요?`, {
                                 onClose: async (act) => {
@@ -3456,7 +3488,7 @@ sap.ui.define([
                                         const next = await self._loadBookmarkHeads();
                                         // 선택 상태/카운트 초기화
                                         jm.setData({ items: next, selectedIds: [], selCount: 0 });
-                                        list.removeSelections(true);
+                                        table.removeSelections(true);
                                         sap.m.MessageToast.show("삭제되었습니다.");
                                     } catch (e) {
                                         jQuery.sap.log.error(e?.message || e);
@@ -3472,8 +3504,8 @@ sap.ui.define([
                 ]
             });
 
-            // ★ 모델을 다이얼로그에 세팅 (버튼 바인딩이 여기서 본다)
             dlg.setModel(jm);
+            table.setModel(jm);  // Table에도 모델 설정
 
             // 5) 정리 & 오픈
             this.getView().addDependent(dlg);
@@ -3606,8 +3638,6 @@ sap.ui.define([
                 return;
             }
 
-
-
             // 더 안정적인 확장을 위해 순차적으로 처리
             const maxRetries = 8;
             let retryCount = 0;
@@ -3623,7 +3653,6 @@ sap.ui.define([
                     if (processedNodes.has(nodeId)) {
                         continue; // 이미 처리된 노드는 스킵
                     }
-
 
                     // 노드를 직접 찾기
                     let foundIndex = -1;
@@ -3700,14 +3729,11 @@ sap.ui.define([
                                 processedNodes.add(nodeId);
                             }
                         } catch (e) {
-
                         }
                     } else {
 
                     }
                 }
-
-
 
                 // 이번 라운드에서 찾은 노드가 없으면 더 이상 진행할 수 없음
                 if (foundInThisRound === 0) {
@@ -3810,12 +3836,10 @@ sap.ui.define([
             return result;
         },
 
-
         _attachDrillStateSync: function () {
             // 로컬 스토리지 기반 북마크 시스템에서는 사용하지 않음
 
         },
-
 
         _collectBookmarkItemsForDB_UI: function () {
             // 로컬 스토리지 기반 북마크 시스템에서는 사용하지 않음
@@ -3828,25 +3852,19 @@ sap.ui.define([
 
         },
 
-
         _expandToLevel: async function (level) {
             // 로컬 스토리지 기반 북마크 시스템에서는 사용하지 않음
 
         },
 
 
-
-
         // target 레벨까지 필요한 부모는 모두 펼친다 (사용하지 않음)
         _ensureExpandedUpToLevel: async function (targetLevel, maxPass = 20) {
-            // 로컬 스토리지 기반 북마크 시스템에서는 사용하지 않음
 
         },
 
         // targetLevel보다 "깊은(>)" 노드는 역순으로 접는다 (사용하지 않음)
         _collapseDeeperThan: async function (targetLevel, maxPass = 12) {
-            // 로컬 스토리지 기반 북마크 시스템에서는 사용하지 않음
-
         },
 
 
@@ -4224,7 +4242,7 @@ sap.ui.define([
                 }, 100);
             }
         },
-        // ★ GL 전체 데이터에서 인덱스 구성
+        // GL 전체 데이터에서 인덱스 구성
         _rebuildGlIndex: function (arr) {
             this._glIndex = {};
             (arr || []).forEach(it => {
@@ -4385,13 +4403,13 @@ sap.ui.define([
                 if (this._isBSorPLRow(obj)) continue;
 
                 // 집계행(GlAccount 없음) 이거나, 금액이 하나라도 있는 리프면 칠하기
-                const hasGl = !!obj.GlAccount;
+                const hasGl = !!(obj.GlAccount && obj.GlAccount.toString().trim());
                 const hasAmt = this._hasAnyAmount(obj, [
                     "PeriodBalance", "ComparisonBalance", "AbsoluteDifference", "RelativeDifference"
                 ]);
 
-                // GL 계정이 있고, 금액도 있는 경우만 색상 칠하기
-                if (!(hasGl && hasAmt)) continue;
+                // GL 계정이 없고, 금액이 있는 경우만 색상 칠하기 (요약 행)
+                if (hasGl || !hasAmt) continue;
                 // 3) property 이름이 FIELDS에 들어있는 셀만 칠함 (열 순서/개인화/북마크 무관)
                 for (let ci = 0; ci < cells.length; ci++) {
                     const prop = cellPropList[ci];
@@ -4467,8 +4485,6 @@ sap.ui.define([
             // 동일해도 OK 시에는 필터/토큰 재적용을 허용 (menu-ok는 항상 진행)
             if (cause !== "menu-ok" && this._sameSet(this._glKeys, next)) return;
 
-
-
             // _glKeys 업데이트는 OK 버튼에서만 수행
             if (cause === "menu-ok") {
                 this._glKeys = next;
@@ -4480,8 +4496,6 @@ sap.ui.define([
 
             // 2) 리스트 선택 복원(이벤트 억제) - 전역 플래그 설정
             this._isRestoringSelections = true;
-       
-
             this._restoreSelectionsInList("L_GlAccount");
             this._restoreSelectionsInList("L_GlAccountText");
 
@@ -4958,8 +4972,7 @@ sap.ui.define([
         onGlAccountTextMenuBeforeOpen: async function () {
             try {
                 // 전체 선택된 경우 빠른 처리
-                if (this._glKeys && this._glKeys.size > 200) {
-                    
+                if (this._glKeys && this._glKeys.size > 200) {           
 
                     // 캐시된 데이터가 있으면 사용
                     if (this._glAllData && this._glAllData.length > 0) {
@@ -5063,9 +5076,7 @@ sap.ui.define([
         _previewTokensFromSet: function (oInputSet, sEvent) {
             const oGlAllMap = this._getGLAllMap(); // GLAccount -> GLAccountLongName 맵
             const aInputCodes = Array.from(oInputSet || new Set());
-            
-        
-            
+                       
             ["MI_GlAccountSelected", "MI_GlAccountTextSelected"].forEach(sControlId => {
                 const oMultiInput = this.byId(sControlId); if (!oMultiInput) return;
                 if (sEvent === "MenuOpen_GL" || sEvent === "MenuOpen_GLTEXT") {
@@ -5082,8 +5093,6 @@ sap.ui.define([
                         }
                         return aIndexList;
                     }.bind(this), [])
-
-             
 
                     aSelectedIndices.forEach(function (iSelectedIndex) {
                         try { oTable.addSelectionInterval(iSelectedIndex, iSelectedIndex); } catch (e) { /* noop */ }
@@ -5241,8 +5250,6 @@ sap.ui.define([
             throw new Error("헤더→아이템 네비게이션을 찾을 수 없음");
         },
 
-
-
         // 헤더 목록
         _loadBookmarkHeads: async function () {
             try {
@@ -5253,19 +5260,26 @@ sap.ui.define([
                     throw new Error("OData 모델을 찾을 수 없습니다.");
                 }
 
-                // DB에서 북마크 헤더 목록 조회
-                const aBookmarks = await new Promise((resolve, reject) => {
-                    oModel.read("/BookMark_Head", {
-                        success: (oData) => {
-
-                            resolve(oData.results || []);
-                        },
-                        error: (oError) => {
-                            console.error("[BM] DB 북마크 헤더 조회 실패:", oError);
-                            reject(oError);
-                        }
+                // DB에서 북마크 헤더 목록 조회 (서버 페이징 우회: $skip 반복)
+                const pageSizeHead = 500;
+                let skipHead = 0;
+                let aBookmarks = [];
+                while (true) {
+                    const aPage = await new Promise((resolve, reject) => {
+                        oModel.read("/BookMark_Head", {
+                            urlParameters: { "$top": String(pageSizeHead), "$skip": String(skipHead) },
+                            success: (oData) => resolve(oData.results || []),
+                            error: (oError) => {
+                                console.error("[BM] DB 북마크 헤더 조회 실패:", oError);
+                                reject(oError);
+                            }
+                        });
                     });
-                });
+                    aBookmarks = aBookmarks.concat(aPage);
+                    if (aPage.length < pageSizeHead) break; // 마지막 페이지
+                    skipHead += aPage.length;
+                }
+                console.log("[BM] 헤더 누적 로드 개수:", aBookmarks.length);
 
                 // 날짜 형식 변환
                 return aBookmarks.map(oBookmark => ({
@@ -5284,27 +5298,32 @@ sap.ui.define([
         // 특정 헤더의 아이템
         _loadBookmarkItems: async function (bookmarkId) {
             try {
-
-
                 const oModel = this._getOData();
                 if (!oModel) {
                     throw new Error("OData 모델을 찾을 수 없습니다.");
                 }
 
-                // DB에서 북마크 아이템 조회
-                const aItems = await new Promise((resolve, reject) => {
-                    oModel.read("/BookMark_Item", {
-                        filters: [new sap.ui.model.Filter("Bookmarkid", sap.ui.model.FilterOperator.EQ, bookmarkId)],
-                        success: (oData) => {
-
-                            resolve(oData.results || []);
-                        },
-                        error: (oError) => {
-                            console.error("[BM] DB 북마크 아이템 조회 실패:", oError);
-                            reject(oError);
-                        }
+                // DB에서 북마크 아이템 조회 (서버 페이징 우회: $skip 반복)
+                const pageSizeItem = 500;
+                let skipItem = 0;
+                let aItems = [];
+                while (true) {
+                    const aPage = await new Promise((resolve, reject) => {
+                        oModel.read("/BookMark_Item", {
+                            filters: [new sap.ui.model.Filter("Bookmarkid", sap.ui.model.FilterOperator.EQ, bookmarkId)],
+                            urlParameters: { "$top": String(pageSizeItem), "$skip": String(skipItem) },
+                            success: (oData) => resolve(oData.results || []),
+                            error: (oError) => {
+                                console.error("[BM] DB 북마크 아이템 조회 실패:", oError);
+                                reject(oError);
+                            }
+                        });
                     });
-                });
+                    aItems = aItems.concat(aPage);
+                    if (aPage.length < pageSizeItem) break;
+                    skipItem += aPage.length;
+                }
+                console.log("[BM] 아이템 누적 로드 개수:", aItems.length);
 
                 // DB 아이템을 앱 상태 형식으로 변환
                 const aExpandedNodes = [];
@@ -5336,7 +5355,6 @@ sap.ui.define([
                     }
                 };
 
-
                 return oState;
 
             } catch (e) {
@@ -5349,7 +5367,6 @@ sap.ui.define([
         // 삭제 (DB에서 제거)
         _deleteBookmarkFromDB: async function (bookmarkId) {
             try {
-
 
                 const oModel = this._getOData();
                 if (!oModel) {
@@ -5507,8 +5524,6 @@ sap.ui.define([
             }
         },
 
-
-
         listBookmarksFromDB: async function () {
             // 로컬 스토리지에서 북마크 목록 반환
             const bookmarks = await this._bm_all();
@@ -5538,8 +5553,6 @@ sap.ui.define([
                     return;
                 }
 
-
-
                 let successCount = 0;
                 let failCount = 0;
 
@@ -5552,8 +5565,6 @@ sap.ui.define([
                         console.error("북마크 삭제 실패:", id, e);
                     }
                 }
-
-
 
                 if (successCount > 0) {
                     sap.m.MessageToast.show(`${successCount}개 북마크가 삭제되었습니다.`);
@@ -5575,8 +5586,6 @@ sap.ui.define([
 
                     return sap.m.MessageToast.show("먼저 조회를 실행하세요.");
                 }
-
-
 
                 // 테이블이 로딩 중인지 확인
                 if (oTable.getBusy()) {
@@ -5801,9 +5810,6 @@ sap.ui.define([
             const s4 = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
             return `${s4()}${s4()}-${s4()}-${s4()}-${s4()}-${s4()}${s4()}${s4()}`.toLowerCase();
         },
-
-
-
 
         _getOData: function () {
             try {
@@ -6049,8 +6055,58 @@ sap.ui.define([
                 if (o) out.push(o);
             }
             return out;
-        }
+        },
 
+        // 데이터 로드 완료 대기 함수
+        _waitForDataLoad: function (oTable) {
+            return new Promise((resolve) => {
+                const oBinding = oTable.getBinding('rows');
+                if (!oBinding) {
+                    resolve();
+                    return;
+                }
+
+                const checkData = () => {
+                    if (oBinding.getLength() > 0) {
+                        resolve();
+                    } else {
+                        setTimeout(checkData, 100);
+                    }
+                };
+
+                // 데이터가 이미 로드된 경우
+                if (oBinding.getLength() > 0) {
+                    resolve();
+                } else {
+                    // 데이터 로드 이벤트 대기
+                    oBinding.attachDataReceived(() => {
+                        resolve();
+                    });
+                    setTimeout(checkData, 1000); // 최대 1초 대기
+                }
+            });
+        },
+
+        // 현재 페이지의 데이터 수집 함수
+        _collectCurrentPageData: function (oTable) {
+            const aExportData = [];
+            const oBinding = oTable.getBinding('rows');
+            if (!oBinding) return aExportData;
+
+            const iRowCount = oBinding.getLength();
+            const aNodes = (typeof oBinding.getNodes === "function") ? oBinding.getNodes() : [];
+
+            for (let i = 0; i < iRowCount; i++) {
+                const ctx = oBinding.getContextByIndex(i);
+                if (!ctx) continue;
+
+                const oRowData = Object.assign({}, ctx.getObject());
+                oRowData.HierarchyLevel = aNodes[i] ? aNodes[i].level : 0;
+                aExportData.push(oRowData);
+            }
+
+            return aExportData;
+        }
 
     });
 });
