@@ -355,14 +355,41 @@ sap.ui.define([
                     }
                 }
 
-                // 2) 각 행의 금액/차이 값을 숫자형으로 유지 (엑셀 숫자 서식 적용)
+                // 2) 각 행에 포맷 적용 대신 숫자형 유지
+                //    화면 포맷팅 문자열을 엑셀에 쓰면 텍스트가 되므로 숫자 변환하되,
+                //    BS/PL 라인에서는 0 값을 빈 칸(null)로 내보내도록 처리합니다.
                 aExportData = aExportData.map(oRowData => {
-                    const toNum = (v) => (v === null || v === undefined || v === "") ? null : Number(v);
+                    const toNumber = (v) => {
+                        if (typeof v === "number") return v;
+                        if (v == null) return 0;
+                        // 화면에서 온 문자열일 경우 모든 비숫자/구분기호 제거 후 숫자 변환
+                        const n = Number(String(v).replace(/[^\d.-]/g, ""));
+                        return isNaN(n) ? 0 : n;
+                    };
 
-                    oRowData.PeriodBalance = toNum(oRowData.PeriodBalance);
-                    oRowData.ComparisonBalance = toNum(oRowData.ComparisonBalance);
-                    oRowData.AbsoluteDifference = toNum(oRowData.AbsoluteDifference);
-                    oRowData.RelativeDifference = toNum(oRowData.RelativeDifference);
+                    const isBSPL = (this._isBSorPLRow ? this._isBSorPLRow(oRowData) : false);
+
+                    const vPB = toNumber(oRowData.PeriodBalance);
+                    const vCB = toNumber(oRowData.ComparisonBalance);
+                    const vAD = toNumber(oRowData.AbsoluteDifference);
+                    const vRD = toNumber(oRowData.RelativeDifference);
+
+                    oRowData.PeriodBalance = (isBSPL && vPB === 0) ? null : vPB;
+                    oRowData.ComparisonBalance = (isBSPL && vCB === 0) ? null : vCB;
+                    
+                    // 절대차이는 100을 곱하고 소수점 2자리로 포맷팅 (숫자로 유지)
+                    if (isBSPL && vAD === 0) {
+                        oRowData.AbsoluteDifference = null;
+                    } else {
+                        oRowData.AbsoluteDifference = parseFloat((vAD * 100).toFixed(2));
+                    }
+                    
+                    // 상대차이는 소수점 4자리로 포맷팅
+                    if (isBSPL && vRD === 0) {
+                        oRowData.RelativeDifference = null;
+                    } else {
+                        oRowData.RelativeDifference = parseFloat(vRD.toFixed(4));
+                    }
 
                     return oRowData;
                 });
@@ -1891,12 +1918,10 @@ sap.ui.define([
             aCols.push({ label: this.i18n.getText("NodeText"), type: EdmType.String, property: 'NodeText', width: 30 });
             aCols.push({ label: this.i18n.getText("GlAccount"), type: EdmType.String, property: 'GlAccount', width: 12 });
             aCols.push({ label: this.i18n.getText("GlAccountText"), type: EdmType.String, property: 'GlAccountText', width: 30 });
-            aCols.push({ label: this.i18n.getText("PeriodBalance"), type: EdmType.Currency, property: 'PeriodBalance', unitProperty: 'CompanyCodeCurrency', displayUnit: false, width: 20 });
-            aCols.push({ label: this.i18n.getText("ComparisonBalance"), type: EdmType.Currency, property: 'ComparisonBalance', unitProperty: 'CompanyCodeCurrency', displayUnit: false, width: 20 });
-            aCols.push({ label: this.i18n.getText("AbsoluteDifference"), type: EdmType.Currency, property: 'AbsoluteDifference', unitProperty: 'CompanyCodeCurrency', displayUnit: false, width: 20 });
-            // 상대차이는 비율/숫자형으로 저장되도록 Number 타입 지정
-            aCols.push({ label: this.i18n.getText("RelativeDifference"), type: EdmType.Number, property: 'RelativeDifference', width: 20 });
-            // 통화코드는 별도 열로 유지(문자열)
+            aCols.push({ label: this.i18n.getText("PeriodBalance"), type: EdmType.Currency, property: 'PeriodBalance', width: 20, unitProperty: 'CompanyCodeCurrency', displayUnit: false });
+            aCols.push({ label: this.i18n.getText("ComparisonBalance"), type: EdmType.Currency, property: 'ComparisonBalance', width: 25, unitProperty: 'CompanyCodeCurrency', displayUnit: false });
+            aCols.push({ label: this.i18n.getText("AbsoluteDifference"), type: EdmType.Number, property: 'AbsoluteDifference', width: 25, scale: 2 });
+            aCols.push({ label: this.i18n.getText("RelativeDifference"), type: EdmType.Number, property: 'RelativeDifference', width: 20, scale: 4 });
             aCols.push({ label: this.i18n.getText("CompanyCodeCurrency"), type: EdmType.String, property: 'CompanyCodeCurrency', width: 10 });
             return aCols;
         },
@@ -2774,9 +2799,8 @@ sap.ui.define([
                     case "PeriodBalance":
                     case "ComparisonBalance":
                     case "AbsoluteDifference":
-                        return EdmType.Currency;
                     case "RelativeDifference":
-                        return EdmType.Number;
+                        return EdmType.Currency;
                     default:
                         return EdmType.String;
                 }
@@ -2808,6 +2832,21 @@ sap.ui.define([
                     if (!prop) return null; // 바인딩 없는 기술열이면 제외
                     const labelCtrl = c.getLabel && c.getLabel();
                     const label = (labelCtrl && labelCtrl.getText && labelCtrl.getText()) || prop;
+                    // 통화형 컬럼은 단위 속성 지정. 표시상 통화 문자열은 숨김 처리(displayUnit:false)
+                    if (prop === "PeriodBalance") {
+                        return { label, type: EdmType.Currency, property: prop, unitProperty: 'CompanyCodeCurrency', displayUnit: false, width: 20 };
+                    }
+                    if (prop === "ComparisonBalance") {
+                        return { label, type: EdmType.Currency, property: prop, unitProperty: 'CompanyCodeCurrency', displayUnit: false, width: 25 };
+                    }
+                    // 절대차이는 숫자형으로 처리
+                    if (prop === "AbsoluteDifference") {
+                        return { label, type: EdmType.Number, property: prop, scale: 2, width: 25 };
+                    }
+                    // 상대차이는 숫자형으로 처리
+                    if (prop === "RelativeDifference") {
+                        return { label, type: EdmType.Number, property: prop, scale: 4 };
+                    }
                     return { label, type: typeOf(prop), property: prop };
                 })
                 .filter(Boolean);
