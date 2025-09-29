@@ -377,11 +377,13 @@ sap.ui.define([
                     oRowData.PeriodBalance = (isBSPL && vPB === 0) ? null : vPB;
                     oRowData.ComparisonBalance = (isBSPL && vCB === 0) ? null : vCB;
                     
-                    // 절대차이는 100을 곱하고 소수점 2자리로 포맷팅 (숫자로 유지)
+                    // 절대차이는 100을 곱하고 정수로 변환 (숫자 타입 유지)
                     if (isBSPL && vAD === 0) {
                         oRowData.AbsoluteDifference = null;
                     } else {
-                        oRowData.AbsoluteDifference = parseFloat((vAD * 100).toFixed(2));
+                        const absDiffValue = Math.round(vAD * 100);
+                        // 숫자 타입으로 유지 (엑셀 포맷에서 쉼표 처리)
+                        oRowData.AbsoluteDifference = absDiffValue;
                     }
                     
                     // 상대차이는 소수점 4자리로 포맷팅
@@ -2839,9 +2841,9 @@ sap.ui.define([
                     if (prop === "ComparisonBalance") {
                         return { label, type: EdmType.Currency, property: prop, unitProperty: 'CompanyCodeCurrency', displayUnit: false, width: 25 };
                     }
-                    // 절대차이는 숫자형으로 처리
+                    // 절대차이는 통화형으로 처리 (쉼표 표시, 소수점 제거)
                     if (prop === "AbsoluteDifference") {
-                        return { label, type: EdmType.Number, property: prop, scale: 2, width: 25 };
+                        return { label, type: EdmType.Currency, property: prop, unitProperty: 'CompanyCodeCurrency', displayUnit: false, width: 25, scale: 0 };
                     }
                     // 상대차이는 숫자형으로 처리
                     if (prop === "RelativeDifference") {
@@ -2868,7 +2870,7 @@ sap.ui.define([
 
                 const custom = this._customParams || {};
                 const colFilters = this._colFilters || {};
-
+ 
                 const oTable = this.byId(Control.Table.T_Main);
                 if (!oTable) {
                     throw new Error("메인 테이블을 찾을 수 없습니다.");
