@@ -59,7 +59,7 @@
 
                             <fb:FilterGroupItem groupName="FB_GROUP" name="GLAccount" label="{i18n>GLAccount}" labelTooltip="{i18n>GLAccount}" visibleInFilterBar="true">
                                 <fb:control>
-                                    <MultiInput id="MI_GL" width="60%" liveChange=".onLiveChange" valueHelpRequest=".onVHGL" suggestionRows="{
+                                    <MultiInput id="MI_GL" width="60%" liveChange=".onLiveChange" submit=".onMultiInputEnter" valueHelpRequest=".onVHGL" suggestionRows="{
                                             path: 'oGLAccount>/'
                                         }">
                                         <suggestionRows>
