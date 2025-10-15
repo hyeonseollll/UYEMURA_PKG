@@ -1,3 +1,21 @@
+/**
+ * ===================================================================================
+ * zgspkgco0060 - 재무제표 애플리케이션 Main 컨트롤러
+ * ===================================================================================
+ * 
+ * 주요 기능:
+ * - 재무제표 데이터 조회 및 표시 (계정별/기간별 비교)
+ * - GL 계정(계정과목) 검색 및 필터링
+ * - Excel 내보내기 기능
+ * - 북마크 기능 (검색 조건 저장/복원)
+ * - 트리 테이블 구조로 계정과목 계층 표시
+ * 
+ * 사용 데이터 소스:
+ * - ZSB_FISTATEMENTS_UI_O2 (재무제표 OData 서비스)
+ * - F_GLAccount_VH (GL 계정 Value Help)
+ * 
+ * ===================================================================================
+ */
 sap.ui.define([
     "sap/ui/core/mvc/Controller",
     "com/gsitm/pkg/co/zgspkgco0060/model/models",
@@ -21,9 +39,13 @@ sap.ui.define([
     "use strict";
 
     // ============================================================================
-    // Constants & Module-scope
+    // Constants & Module-scope Variables
     // ============================================================================
+    
+    // Excel 내보내기용 EDM 타입
     const EdmType = exportLibrary.EdmType;
+    
+    // UI 컨트롤 ID 매핑 - 코드 가독성과 유지보수성을 위해 중앙 관리
     const Control = {
         ComboBox: { CB_CompanyCode: "CB_CompanyCode" },
         FilterBar: { FB_MainSearch: "FB_MainSearch" },
@@ -32,22 +54,27 @@ sap.ui.define([
         Button: { B_Excel: "B_Excel", B_Print: "B_Print" },
         SearchField: { SF_GlAccount: "SF_GlAccount", SF_GlAccountText: "SF_GlAccountText" }
     };
+    
+    // 커스텀 파라미터 매핑 - OData 쿼리 파라미터명
     const CUSTOM_PARAM_MAP = {
-        NodeText: "LP_NODETEXT",
-        GlAccount: "LP_GLACCOUNT",
-        GlAccountText: "LP_GLACCOUNTTEXT"
+        NodeText: "LP_NODETEXT",        // 노드 텍스트
+        GlAccount: "LP_GLACCOUNT",      // GL 계정
+        GlAccountText: "LP_GLACCOUNTTEXT" // GL 계정 텍스트
     };
 
-    // === 북마크(앱 내부) 유틸 ===
+    // 북마크 기능 관련 상수
     const BM_KEY = "zgspkgco0060.bookmarks.v1";
     const BOOKMARK = {
-        headSet: "/BookMark_Head",      // 헤더 엔티티셋 이름
-        itemSet: "/BookMark_Item",      // 아이템 엔티티셋 이름
-        headToItemsNav: "to_Items"      // 헤더→아이템 네비게이션 이름 (Deep Insert용)
+        headSet: "/BookMark_Head",      // 북마크 헤더 엔티티셋
+        itemSet: "/BookMark_Item",      // 북마크 아이템 엔티티셋
+        headToItemsNav: "to_Items"      // 헤더→아이템 네비게이션 (Deep Insert용)
     };
-    let oView;               // cached view
-    let vVHGL;               // GL Value Help model
+    
+    // 모듈 스코프 변수들
+    let oView;               // 뷰 캐시 (성능 최적화)
+    let vVHGL;               // GL Value Help 모델 참조
 
+    // GL 계정 선택 토큰 배열 (MultiInput용)
     let aTokenSeletedGLAccount = [];
     let aTokenSeletedGLAccountOrg = [];
 
@@ -55,44 +82,63 @@ sap.ui.define([
         formatter: formatter,
 
         // ========================================================================
-        // LIFECYCLE
+        // LIFECYCLE METHODS
         // ========================================================================
         /**
-         * onInit: models, i18n, defaults, event delegates (that require control IDs),
-         * and initial table binding setup.
+         * 컨트롤러 초기화 함수
+         * 
+         * 주요 초기화 작업:
+         * 1. GL 계정 관련 데이터 구조 초기화
+         * 2. 모델 설정 (i18n, JSON 모델들)
+         * 3. 필터바 및 검색 필드 설정
+         * 4. 테이블 바인딩 초기화
+         * 5. Value Help 모델 설정
          */
         onInit: function () {
-            this._glDict = {};
-            this._glKeys = new Set();
-            this._glAllLoaded = false;
-            this._glAllData = null;
-            this._glSelKeys = new Set();
-            this._glTextSelKeys = new Set();
-            this._glSel = new Set();
-            this._glIndex = {};
-            this._colFilters = {};
-            this._expandAllAfterBind = false;
-            // onInit 등 컨트롤러 멤버 초기화 위치
-            this._menuOpen = false;       // 메뉴 열림 여부
-            this._glStage = null;         // 메뉴에서 임시로 담아둘 선택들(Set<string>)
+            // ====================================================================
+            // GL 계정 관련 데이터 구조 초기화
+            // ====================================================================
+            this._glDict = {};              // GL 계정 정보 딕셔너리
+            this._glKeys = new Set();       // GL 계정 키 세트
+            this._glAllLoaded = false;      // 전체 GL 데이터 로드 완료 플래그
+            this._glAllData = null;         // 전체 GL 데이터 캐시
+            this._glSelKeys = new Set();    // 선택된 GL 계정 키들
+            this._glTextSelKeys = new Set(); // 선택된 GL 계정 텍스트 키들
+            this._glSel = new Set();        // 선택된 GL 계정 세트
+            this._glIndex = {};             // GL 계정 인덱스 맵
+            this._colFilters = {};          // 컬럼 필터 정보
+            this._expandAllAfterBind = false; // 바인딩 후 전체 펼침 플래그
+            
+            // ====================================================================
+            // UI 상태 관리 변수 초기화
+            // ====================================================================
+            this._menuOpen = false;         // GL 계정 메뉴 열림 여부
+            this._glStage = null;           // 메뉴에서 임시로 담아둘 선택들(Set<string>)
             this._glKeys = this._glKeys || new Set(); // 기존 커밋된 선택
             this._glDict = this._glDict || {};
 
-            // flags & restore info
-            this._isClientView = false;     // JSON client mode?
-            this._origBindingInfo = null;   // OData restore info
-            this._bInitialExpandDone = false;
-            this._hlBound = false;          // rowsUpdated listener bound?
-            this._customParams = {};
-            this._colSel = { GlAccount: [], GlAccountText: [] };
-            // i18n
+            // ====================================================================
+            // 시스템 상태 및 플래그 초기화
+            // ====================================================================
+            this._isClientView = false;     // JSON 클라이언트 모드 플래그
+            this._origBindingInfo = null;   // OData 원본 바인딩 정보 (복원용)
+            this._bInitialExpandDone = false; // 초기 펼침 완료 플래그
+            this._hlBound = false;          // 행 업데이트 리스너 바인딩 플래그
+            this._customParams = {};        // 커스텀 파라미터 맵
+            this._colSel = { GlAccount: [], GlAccountText: [] }; // 컬럼 선택 정보
+            
+            // ====================================================================
+            // 국제화(i18n) 설정
+            // ====================================================================
             this.i18n = this.getOwnerComponent().getModel("i18n").getResourceBundle();
 
-            // view & base models
+            // ====================================================================
+            // 뷰 및 모델 초기화
+            // ====================================================================
             oView = this.getView();
-            oView.setModel(new JSONModel(), "oResult");
-            oView.setModel(Model.createDateRangeModel(), "DateRange");
-            oView.setModel(Model.createSearchModel(), "Search");
+            oView.setModel(new JSONModel(), "oResult");        // 결과 데이터 모델
+            oView.setModel(Model.createDateRangeModel(), "DateRange"); // 날짜 범위 모델
+            oView.setModel(Model.createSearchModel(), "Search"); // 검색 조건 모델
 
             // GL Value Help model (async) - 초기에는 빈 모델로 시작
             oView.setModel(new JSONModel(), "oGLAccount");

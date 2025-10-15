@@ -1,19 +1,58 @@
+/**
+ * ===================================================================================
+ * zgspkgco0060 - 재무제표 애플리케이션 Formatter
+ * ===================================================================================
+ * 
+ * 주요 기능:
+ * - 재무 데이터 포맷팅 (통화, 숫자, 날짜)
+ * - 0값 처리 및 숨김 로직
+ * - BS/PL(대차대조표/손익계산서) 특별 처리
+ * - 절대차이 계산 및 포맷팅
+ * 
+ * 작성자: GS ITM
+ * 작성일: 2024
+ * ===================================================================================
+ */
 // 경로: com/gsitm/pkg/co/zgspkgco0060/formatter/formatter.js
 sap.ui.define([], function () {
     "use strict";
+    
+    // ================================================================================
+    // 상수 및 유틸리티 함수
+    // ================================================================================
+    
+    /** 매우 작은 수 (0 판정용) */
     const EPS = 1e-9;
+    
+    /** 숫자를 2자리 문자열로 패딩 */
     const pad = (n) => String(n).padStart(2, "0");
+    
+    /**
+     * 두 수의 근사치 비교 (상대/절대 혼합 허용 오차)
+     * @param {number} a 첫 번째 수
+     * @param {number} b 두 번째 수
+     * @returns {boolean} 근사치 여부
+     */
     function approx(a, b) {
-        // 상대/절대 혼합 허용 오차
         return Math.abs(a - b) <= Math.max(1, Math.abs(b) * 1e-6);
     }
 
+    /**
+     * 안전한 숫자 변환 함수
+     * - null/undefined → NaN
+     * - 문자열의 괄호 형태 (1,234) → -1234 변환
+     * - 콤마 제거 후 숫자 변환
+     * @param {any} v 변환할 값
+     * @returns {number} 변환된 숫자 또는 NaN
+     */
     function toNumberSafe(v) {
         if (v === null || v === undefined) return NaN;
         if (typeof v === "number") return v;
         if (typeof v === "string") {
             let s = v.trim();
-            if (/^\(.*\)$/.test(s)) s = "-" + s.slice(1, -1); // (1,234) -> -1234
+            // 괄호 형태의 음수 처리: (1,234) → -1234
+            if (/^\(.*\)$/.test(s)) s = "-" + s.slice(1, -1);
+            // 콤마 제거
             s = s.replace(/,/g, "");
             const n = Number(s);
             return isNaN(n) ? NaN : n;
@@ -22,16 +61,41 @@ sap.ui.define([], function () {
     }
 
     return {
+        // ================================================================================
+        // 기본 수치 포맷터
+        // ================================================================================
 
+        /**
+         * 백분율 변환 (100으로 나누기, 소수점 2자리)
+         * @param {number} vValue 변환할 값
+         * @returns {string} 포맷된 문자열
+         */
         multiplyByHundredth: function (vValue) {
             if (!vValue && vValue !== 0) return "";
             return (parseFloat(vValue) / 100).toFixed(2);
         },
+        
+        /**
+         * 백분율 변환 (100으로 나누기, 소수점 4자리)
+         * @param {number} vValue 변환할 값
+         * @returns {string} 포맷된 문자열
+         */
         multiplyByHundredth2: function (vValue) {
             if (!vValue && vValue !== 0) return "";
             return (parseFloat(vValue) / 100).toFixed(4);
         },
-        // 0이면 공백, 아니면 표시 (통화코드는 별도 컬럼)
+        
+        // ================================================================================
+        // 통화 및 숫자 포맷터 (0값 숨김 처리)
+        // ================================================================================
+        
+        /**
+         * 통화 포맷터 (0이면 공백, 아니면 표시)
+         * 통화코드는 별도 컬럼에서 처리
+         * @param {number} amount 금액
+         * @param {string} curr 통화 코드
+         * @returns {string} 포맷된 통화 문자열
+         */
         hideZeroCurrency: function (amount, curr) {
             // 만약 XML에서 parts 순서를 실수했다면 자동 보정
             // (amount가 숫자가 아니고 curr가 숫자면 swap)
