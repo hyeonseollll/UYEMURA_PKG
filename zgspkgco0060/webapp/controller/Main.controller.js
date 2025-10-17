@@ -43,7 +43,7 @@ sap.ui.define([
     // ============================================================================
     
     // Excel 내보내기용 EDM 타입
-    const EdmType = exportLibrary.EdmType;
+    const EdmType = exportLibrary.EdmTyp
     
     // UI 컨트롤 ID 매핑 - 코드 가독성과 유지보수성을 위해 중앙 관리
     const Control = {
