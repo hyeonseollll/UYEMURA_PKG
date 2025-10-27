@@ -105,14 +105,17 @@ sap.ui.define([
             let oTreeTable = this.getView().byId(Control.Table.T_Main);
             let oRowBinding = oTreeTable.getBinding('rows');
 
+            // Build export $filter directly from current Search model (avoids sFilterParams pitfalls)
+            const sFilter = this._buildExportFilterString();
+
             this.getView().getModel().read('/MfgCostStmt/$count', {
-                urlParameters: this._makeURL(oRowBinding.sFilterParams),
+                urlParameters: { "$filter": sFilter },
                 success: function (oResult) {
                     this.count = oResult;
                     this.getView().getModel().read('/MfgCostStmt', {
-                        urlParameters: this._makeURL(oRowBinding.sFilterParams, oResult),
+                        urlParameters: Object.assign({ "$filter": sFilter }, oResult ? { "$top": oResult } : {}),
                         success: function (oResult) {
-                            this.data = oResult.results
+                            this.data = oResult.results;
                             let aCols, oSettings, oSheet;
                             aCols = this._createColumnConfig();
 
@@ -123,7 +126,7 @@ sap.ui.define([
                                 },
                                 dataSource: this.data,
                                 fileName: this.i18n.getText("title") + (new Date()).toISOString() + '.xlsx',
-                                worker: true // We need to disable worker because we are using a Mockserver as OData Service
+                                worker: true
                             };
 
                             oSheet = new Spreadsheet(oSettings);
@@ -131,10 +134,12 @@ sap.ui.define([
                                 oSheet.destroy();
                                 oBExcel.setBusy(false);
                             });
-                        }.bind(this)
-                    })
-                }.bind(this)
-            })
+                        }.bind(this),
+                        error: function () { oBExcel.setBusy(false); }.bind(this)
+                    });
+                }.bind(this),
+                error: function () { oBExcel.setBusy(false); }.bind(this)
+            });
         },
 
         onExpand: function () {
@@ -357,6 +362,35 @@ sap.ui.define([
                 ofilters["$top"] = icount;
             }
             return ofilters;
+        },
+
+        // Build robust OData $filter string from current Search model
+        _buildExportFilterString: function () {
+            const oSearch = this.getView().getModel("Search").getData();
+            const toYear = oSearch.ToDate && oSearch.ToDate.getFullYear ? oSearch.ToDate.getFullYear() : "";
+            const toMonth = (oSearch.ToDate && oSearch.ToDate.getMonth != null)
+                ? String(oSearch.ToDate.getMonth() + 1).padStart(3, '0')
+                : "000";
+            const checkGL = !!oSearch.CheckGL;
+            const compCd = (oSearch.CompanyCode || "").split(" ")[0];
+            const runType = oSearch.RunType || "";
+
+            const q = (k, v, type) => {
+                if (v === "" || v === undefined || v === null) return null;
+                if (type === 's') return `${k} eq '${String(v).replace(/'/g, "''")}'`;
+                if (type === 'b') return `${k} eq ${v ? 'true' : 'false'}`;
+                return `${k} eq ${v}`; // number
+            };
+
+            const parts = [
+                q('P_TOYEAR', toYear, 'n'),
+                q('P_TOMONTH', toMonth, 's'),
+                q('P_CHEKGL', checkGL, 'b'),
+                q('P_COMPCD', compCd, 's'),
+                q('P_RUNTYPE', runType, 's')
+            ].filter(Boolean);
+
+            return parts.join(' and ');
         },
 
         _busyUntilFullyExpanded: function (oTable, opts) {
